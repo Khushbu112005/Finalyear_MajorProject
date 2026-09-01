@@ -22,6 +22,7 @@ from backend.app.knowledge.api.graph import router as graph_router
 from backend.app.knowledge.api.sources import router as sources_router
 from backend.app.knowledge.api.ingestion import router as ingestion_router
 from backend.app.knowledge.api.admin import router as admin_router
+from backend.app.document_processing.api.upload import router as document_processing_router
 
 logging.basicConfig(level=settings.LOG_LEVEL, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("civicsphere.main")
@@ -79,6 +80,7 @@ app.include_router(graph_router, prefix=settings.API_PREFIX)
 app.include_router(sources_router, prefix=settings.API_PREFIX)
 app.include_router(ingestion_router, prefix=settings.API_PREFIX)
 app.include_router(admin_router, prefix=settings.API_PREFIX)
+app.include_router(document_processing_router, prefix=settings.API_PREFIX)
 
 
 @app.get("/health", tags=["Health"])
