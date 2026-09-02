@@ -94,3 +94,15 @@ Client Browser                          FastAPI Backend Server
 
 ## 4. Observability & Tamper-Evident Audit Controls
 All audit events emitted across API requests, document pipeline stages, and multi-agent reasoning steps pass through `AuditManager`. Events are automatically sanitized of sensitive identifiers, structured in canonical JSON format, and recorded in an append-oriented tamper-evident log sink backed by PostgreSQL table `audit_events`.
+
+---
+
+## 5. Security Incident & Credential Rotation Log (Gate 1 Compliance)
+- **Incident Summary**: During live deployment pre-flight verification of the storage layer, a temporary development Supabase service-role key was invoked in an interactive diagnostic session.
+- **Classification**: Treated as COMPROMISED under zero-trust operational security policy.
+- **Mandatory Remediation Protocol**:
+  1. The exposed key is revoked and rotated immediately in the Supabase Dashboard (`Project Settings -> API -> Rotate service_role secret`).
+  2. The newly generated service-role key is strictly isolated to backend production runtime environment variables (Render Secret Configuration).
+  3. Zero exposure allowed in: Git history, `.env.example`, README, markdown documentation, client-side bundle (`apps/web`), shell history, or public transcripts.
+  4. The frontend must NEVER have access to privileged service-role credentials (`NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` is explicitly prohibited).
+- **Status**: ROTATION PROTOCOL ENFORCED.

@@ -5,6 +5,8 @@ Verifies PDF upload, security scanning, OCR extraction, AI structuring, and Know
 
 import pytest
 import io
+import asyncio
+from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 from backend.app.main import app
 
@@ -53,3 +55,55 @@ def test_document_security_scanner_blocks_malicious_pdf(citizen_auth_headers):
     assert resp.status_code == 400
     body = resp.json()
     assert body["error"]["code"] == "SECURITY_THREAT_BLOCKED"
+
+
+@patch("httpx.AsyncClient.post", new_callable=AsyncMock)
+@patch("httpx.AsyncClient.get", new_callable=AsyncMock)
+def test_document_e2e_supabase_storage_integration(mock_http_get, mock_http_post, citizen_auth_headers, monkeypatch):
+    """
+    Verifies full application integration with Supabase Storage:
+    API upload -> FastAPI -> SupabaseStorageBackend.save_file -> DocumentModel in DB ->
+    GET /api/v1/documents/{doc_id} -> retrieve file bytes via SupabaseStorageBackend.get_file.
+    """
+    from backend.app.common.config import settings
+    from backend.app.documents.services.storage import get_storage_backend
+
+    monkeypatch.setattr(settings, "STORAGE_BACKEND", "supabase")
+    monkeypatch.setattr(settings, "SUPABASE_URL", "https://test.supabase.co")
+    monkeypatch.setattr(settings, "SUPABASE_SERVICE_ROLE_KEY", "test-key-32-chars-minimum-length!")
+    monkeypatch.setattr(settings, "SUPABASE_STORAGE_BUCKET", "civicsphere-demo-documents")
+
+    mock_resp_up = MagicMock()
+    mock_resp_up.status_code = 200
+    mock_resp_up.text = '{"Key": "civicsphere-demo-documents/doc_test123.pdf"}'
+    mock_http_post.return_value = mock_resp_up
+
+    mock_resp_down = MagicMock()
+    mock_resp_down.status_code = 200
+    mock_resp_down.content = MINIMAL_VALID_PDF
+    mock_http_get.return_value = mock_resp_down
+
+    pdf_file = io.BytesIO(MINIMAL_VALID_PDF)
+    files = {"file": ("Court_Affidavit.pdf", pdf_file, "application/pdf")}
+
+    resp = client.post("/api/v1/documents/upload", files=files, headers=citizen_auth_headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    doc_data = body["data"]
+    doc_id = doc_data["id"]
+    storage_path = doc_data["storage_path"]
+
+    # 1. Verify storage path is formed with supabase scheme
+    assert storage_path.startswith("supabase://civicsphere-demo-documents/")
+    assert doc_data["status"] == "READY"
+
+    # 2. Verify document metadata retrieval via API
+    get_resp = client.get(f"/api/v1/documents/{doc_id}", headers=citizen_auth_headers)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["data"]["storage_path"] == storage_path
+
+    # 3. Verify retrieving original file bytes through storage backend using stored metadata
+    backend = get_storage_backend()
+    retrieved_bytes = asyncio.run(backend.get_file(storage_path))
+    assert retrieved_bytes == MINIMAL_VALID_PDF
