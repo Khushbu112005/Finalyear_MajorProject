@@ -18,11 +18,14 @@ Base = declarative_base()
 # Configure async engine
 DATABASE_URL = settings.DATABASE_URL
 
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=(settings.ENVIRONMENT == "development" and settings.LOG_LEVEL == "DEBUG"),
-    future=True,
-)
+engine_kwargs = {
+    "echo": (settings.ENVIRONMENT == "development" and settings.LOG_LEVEL == "DEBUG"),
+    "future": True,
+}
+if str(DATABASE_URL).startswith("postgresql+asyncpg"):
+    engine_kwargs["connect_args"] = {"statement_cache_size": 0}
+
+engine = create_async_engine(DATABASE_URL, **engine_kwargs)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,

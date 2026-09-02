@@ -3,7 +3,7 @@ Configuration management for CivicSphere Module C.
 Loads settings from environment variables with strong typing and security defaults.
 """
 
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -58,6 +58,13 @@ class Settings(BaseSettings):
     EVIDENCE_CONFIDENCE_THRESHOLD_GOOD: float = 0.75
     EVIDENCE_CONFIDENCE_THRESHOLD_LIMITED: float = 0.50
 
+    # Document Object Storage (Local Filesystem or Supabase Storage)
+    STORAGE_BACKEND: str = "local"  # "local" or "supabase"
+    STORAGE_LOCAL_PATH: str = "./uploads"
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
+    SUPABASE_STORAGE_BUCKET: str = "civicsphere-demo-documents"
+
     def model_post_init(self, __context) -> None:
         """Validate that required secrets are set and not placeholder values."""
         unsafe_patterns = [
@@ -76,6 +83,17 @@ class Settings(BaseSettings):
                     raise ValueError(
                         f"FATAL: {field_name} contains an unsafe placeholder value. "
                         f"Use a strong random secret for non-development environments."
+                    )
+
+        if self.STORAGE_BACKEND == "supabase":
+            if not self.SUPABASE_URL or not self.SUPABASE_SERVICE_ROLE_KEY:
+                raise ValueError(
+                    "FATAL: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set when STORAGE_BACKEND=supabase"
+                )
+            if any(pattern in (self.SUPABASE_SERVICE_ROLE_KEY or "").lower() for pattern in unsafe_patterns):
+                if self.ENVIRONMENT not in ("development", "test"):
+                    raise ValueError(
+                        "FATAL: SUPABASE_SERVICE_ROLE_KEY contains an unsafe placeholder value."
                     )
 
 

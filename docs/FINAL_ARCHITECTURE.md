@@ -38,12 +38,12 @@ CivicSphere AI operates as a unified modular monolith backend with a single Next
     +--------------------+  +-------+
 ```
 
-## 2. Active Runtime Independence & Legacy Retirement
+## 2. Active Runtime Independence & Legacy Removal
 The production system runtime is strictly consolidated:
 - **Backend Runtime**: Solely executes via `backend/app/main.py` (FastAPI).
 - **Frontend Runtime**: Solely executes via `apps/web/` (Next.js 14 App Router).
-- **Legacy Directories**: `server/`, `client/`, `Civicsphere/backend/`, `Civicsphere/frontend/` are retired from the active runtime and preserved only as reference/migration baselines.
-- **Database Dependency**: MongoDB has been fully replaced by canonical PostgreSQL 16 (`backend/app/common/database.py`) with zero MongoDB drivers or connection dependencies in the active runtime.
+- **Legacy Directories**: `server/`, `client/`, `Civicsphere/`, and `evaluator.js` have been deleted from the repository.
+- **Database Dependency**: MongoDB has been fully replaced by canonical PostgreSQL 16 (`backend/app/common/database.py`) with zero MongoDB drivers or connection dependencies in the codebase.
 
 ## 3. Core Architectural Invariants
 1. **Zero Statutory Hallucination**: Fallback fail-safe triggers if similarity is insufficient (`FailSafeState.INSUFFICIENT_EVIDENCE`).

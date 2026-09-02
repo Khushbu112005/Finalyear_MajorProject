@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: civicsphere-sync-sources
+  namespace: civicsphere
+  labels:
+    app: civicsphere
+    component: knowledge-sync
+spec:
+  # Execute every 24 hours at midnight UTC
+  schedule: "0 0 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: civicsphere
+            component: knowledge-sync
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: source-sync-worker
+              image: civicsphere/backend:latest
+              command: ["python", "infrastructure/scripts/sync_sources_cron.py"]
+              envFrom:
+                - secretRef:
+                    name: civicsphere-secrets
+                - configMapRef:
+                    name: civicsphere-config
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "250m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "500m"

@@ -18,18 +18,20 @@ from backend.app.knowledge.sources.registry import source_registry
 from backend.app.knowledge.graph.repository import graph_repository
 from backend.app.knowledge.ingestion.vector_writer import vector_store
 from backend.app.common.audit import AuditManager
+from backend.app.common.init_db import init_models
 from data.seed.seed_data import seed_knowledge_base
 
 
 @pytest.fixture(autouse=True)
 def setup_test_knowledge_base():
-    """Seeds the knowledge base before tests and clears on teardown."""
+    """Seeds the knowledge base and initializes database tables before tests."""
     source_registry.clear()
     graph_repository.clear()
     vector_store.clear()
     AuditManager.clear()
 
-    # Seed verified sources synchronously
+    # Initialize SQL database tables and seed verified sources synchronously
+    asyncio.run(init_models())
     asyncio.run(seed_knowledge_base())
     yield
 

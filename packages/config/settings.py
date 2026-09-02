@@ -57,5 +57,12 @@ class GlobalSettings(BaseSettings):
     FETCH_TIMEOUT_SECONDS: float = 10.0
     MAX_REDIRECTS: int = 3
 
+    # Document Storage
+    STORAGE_BACKEND: str = "local"
+    STORAGE_LOCAL_PATH: str = "./uploads"
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_STORAGE_BUCKET: str = "civicsphere-demo-documents"
+
 
 global_settings = GlobalSettings()

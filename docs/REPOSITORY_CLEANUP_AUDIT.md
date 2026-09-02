@@ -37,12 +37,12 @@ Legacy / Inactive Runtimes:                    server/, client/, Civicsphere/, u
 
 | Path | Type | Current Purpose | Active? | Referenced by Canonical Runtime? | Duplicate? | Candidate Category | Confidence | Rationale |
 | :--- | :--- | :--- | :---: | :---: | :---: | :--- | :---: | :--- |
-| `server/` | Directory (40 files) | Legacy Express backend | No | No | Yes (vs `backend/`) | **DELETE-CANDIDATE** | 100% | Fully superseded by `backend/app/main.py`. |
-| `client/` | Directory (17 files) | Legacy Vite frontend | No | No | Yes (vs `apps/web/`) | **DELETE-CANDIDATE** | 100% | Fully superseded by `apps/web/`. |
-| `Civicsphere/` | Directory (84 files) | Legacy duplicate fullstack app | No | No | Yes (vs `backend/` & `apps/web/`) | **DELETE-CANDIDATE** | 100% | Unused duplicate prototype. |
-| `uploads/` | Directory (49 files) | Local PDF storage | No | No | No | **ARCHIVE / CLEANUP** | 95% | Local test artifacts generated during document upload tests. |
-| `data/evaluation/evaluator.js` | File (JavaScript) | Legacy Mongo-based evaluator | No | No | Yes (vs `run_benchmarks.py`) | **DELETE-CANDIDATE** | 100% | Uses deprecated `mongoose` and points to `server/src/models`. |
-| `civicsphere.db` | File (SQLite) | Local dev SQLite database | No | No | No | **ARCHIVE / .gitignore** | 90% | Local database created during unit test runs. |
+| `server/` | Directory (40 files) | Legacy Express backend | **REMOVED** | **NO** | Yes (vs `backend/`) | **DELETED** | 100% | Deleted during cleanup. |
+| `client/` | Directory (17 files) | Legacy Vite frontend | **REMOVED** | **NO** | Yes (vs `apps/web/`) | **DELETED** | 100% | Deleted during cleanup. |
+| `Civicsphere/` | Directory (84 files) | Legacy duplicate fullstack app | **REMOVED** | **NO** | Yes (vs `backend/` & `apps/web/`) | **DELETED** | 100% | Deleted during cleanup. |
+| `uploads/*.pdf`| Files | Local PDF storage | **REMOVED** | **NO** | No | **IGNORED & CLEANED** | 100% | Added to .gitignore; directory preserved with .gitkeep. |
+| `data/evaluation/evaluator.js` | File (JavaScript) | Legacy Mongo-based evaluator | **REMOVED** | **NO** | Yes (vs `run_benchmarks.py`) | **DELETED** | 100% | Deleted during cleanup. |
+| `civicsphere.db` | File (SQLite) | Local dev SQLite database | **REMOVED** | **NO** | No | **IGNORED & CLEANED** | 100% | Added to .gitignore. |
 
 ---
 

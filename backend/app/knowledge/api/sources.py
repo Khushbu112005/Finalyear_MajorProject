@@ -73,3 +73,56 @@ async def get_source_versions(
         success=True,
         data=[v.model_dump() for v in versions]
     )
+
+
+@router.post("/sources/{source_id}/refresh", response_model=ApiResponse[Dict[str, Any]])
+async def refresh_source_endpoint(
+    source_id: str,
+    force: bool = Query(default=False),
+    auth: AuthContext = Depends(get_current_user_context)
+) -> ApiResponse[Dict[str, Any]]:
+    """Admin-only: On-demand live refresh of a specific knowledge source."""
+    if auth.role not in ("admin", "knowledge_editor"):
+        from backend.app.common.errors import ForbiddenException
+        raise ForbiddenException("Live source refresh requires ADMIN or KNOWLEDGE_EDITOR privileges.")
+
+    from backend.app.knowledge.sources.sync_worker import source_sync_worker
+    result = await source_sync_worker.refresh_source(
+        source_id=source_id,
+        force=force,
+        actor_id=auth.user_id
+    )
+    return ApiResponse(
+        success=True,
+        data=result
+    )
+
+
+@router.post("/sources/sync-all", response_model=ApiResponse[Dict[str, Any]])
+async def sync_all_sources_endpoint(
+    auth: AuthContext = Depends(get_current_user_context)
+) -> ApiResponse[Dict[str, Any]]:
+    """Admin-only: Triggers a complete synchronization cycle across all registered sources."""
+    if auth.role not in ("admin", "knowledge_editor"):
+        from backend.app.common.errors import ForbiddenException
+        raise ForbiddenException("Full source sync requires ADMIN or KNOWLEDGE_EDITOR privileges.")
+
+    from backend.app.knowledge.sources.sync_worker import source_sync_worker
+    summary = await source_sync_worker.refresh_all_sources(actor_id=auth.user_id)
+    return ApiResponse(
+        success=True,
+        data=summary
+    )
+
+
+@router.get("/sources/sync/status", response_model=ApiResponse[Dict[str, Any]])
+async def get_sync_status_endpoint(
+    auth: AuthContext = Depends(get_current_user_context)
+) -> ApiResponse[Dict[str, Any]]:
+    """Retrieves live status and metrics for the continuous synchronization engine."""
+    from backend.app.knowledge.sources.sync_worker import source_sync_worker
+    status_data = source_sync_worker.get_sync_status()
+    return ApiResponse(
+        success=True,
+        data=status_data
+    )

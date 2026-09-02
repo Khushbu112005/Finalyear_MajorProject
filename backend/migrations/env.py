@@ -33,8 +33,13 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Override URL with application settings
-db_url = str(settings.DATABASE_URL)
+# Override URL with dedicated MIGRATION_DATABASE_URL or application settings
+migration_url = os.environ.get("MIGRATION_DATABASE_URL")
+if migration_url:
+    db_url = str(migration_url)
+else:
+    db_url = str(settings.DATABASE_URL)
+
 if db_url.startswith("postgresql://"):
     db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 config.set_main_option("sqlalchemy.url", db_url)
@@ -63,10 +68,16 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
+    configuration = config.get_section(config.config_ini_section, {})
+    connect_args = {}
+    if db_url.startswith("postgresql+asyncpg"):
+        connect_args = {"statement_cache_size": 0}
+
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:

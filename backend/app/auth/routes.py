@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.schemas.contracts import ApiResponse
+from backend.app.common.config import settings
 from backend.app.common.database import get_db_session
 from backend.app.common.errors import CivicSphereException
 from backend.app.auth.models import UserModel, UserRole
@@ -71,14 +72,18 @@ class UpdateProfileRequest(BaseModel):
 
 
 def _set_auth_cookies(response: Response, token: str) -> str:
-    """Sets secure httpOnly cookie and returns a CSRF token."""
+    """Sets secure httpOnly cookie and returns a CSRF token with cross-origin support."""
     csrf_token = secrets.token_hex(32)
+    is_prod = settings.ENVIRONMENT == "production"
+    samesite_val = "none" if is_prod else "lax"
+    secure_val = is_prod
+
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
-        secure=False,  # Set to True in production with HTTPS
-        samesite="lax",
+        secure=secure_val,
+        samesite=samesite_val,
         max_age=60 * 60 * 24,  # 24 hours
         path="/",
     )
@@ -86,8 +91,8 @@ def _set_auth_cookies(response: Response, token: str) -> str:
         key="csrf_token",
         value=csrf_token,
         httponly=False,  # Readable by frontend client to set X-CSRF-Token header
-        secure=False,
-        samesite="lax",
+        secure=secure_val,
+        samesite=samesite_val,
         max_age=60 * 60 * 24,
         path="/",
     )
@@ -225,8 +230,11 @@ async def disable_mfa(
 @router.post("/logout", response_model=ApiResponse[Dict[str, Any]])
 async def logout(response: Response):
     """Clears authentication session cookies."""
-    response.delete_cookie(key="access_token", path="/")
-    response.delete_cookie(key="csrf_token", path="/")
+    is_prod = settings.ENVIRONMENT == "production"
+    samesite_val = "none" if is_prod else "lax"
+    secure_val = is_prod
+    response.delete_cookie(key="access_token", path="/", samesite=samesite_val, secure=secure_val)
+    response.delete_cookie(key="csrf_token", path="/", samesite=samesite_val, secure=secure_val)
     return ApiResponse(data={"message": "Logged out successfully."}, confidence=1.0)
 
 

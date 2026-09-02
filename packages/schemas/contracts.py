@@ -12,10 +12,13 @@ import uuid
 
 class VerificationStatus(str, Enum):
     ACTIVE = "ACTIVE"
+    STALE = "STALE"
     SUPERSEDED = "SUPERSEDED"
     EXPIRED = "EXPIRED"
     UNVERIFIED = "UNVERIFIED"
     BLOCKED = "BLOCKED"
+    FETCH_FAILED = "FETCH_FAILED"
+    PARSER_FAILED = "PARSER_FAILED"
 
 
 class SourceTrustLevel(int, Enum):

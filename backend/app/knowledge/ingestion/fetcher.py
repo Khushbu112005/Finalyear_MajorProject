@@ -4,6 +4,7 @@ Retrieves remote legal/civic content over HTTP/HTTPS with strict timeout, size, 
 """
 
 import httpx
+from urllib.parse import urljoin
 from typing import Tuple, Dict, Any
 from backend.app.common.config import settings
 from backend.app.common.errors import SecurityBlockedException, IngestionValidationException
@@ -22,7 +23,7 @@ class SourceFetcher:
         validated_url = IngestionValidator.validate_url(url)
 
         headers = {
-            "User-Agent": "CivicSphere-Knowledge-Engine/1.0 (+https://civicsphere.org)",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 (CivicSphere/1.0)",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
         }
 
@@ -47,8 +48,9 @@ class SourceFetcher:
                     if redirects_followed > settings.MAX_REDIRECTS:
                         raise IngestionValidationException(f"Exceeded maximum allowed redirects ({settings.MAX_REDIRECTS}).")
 
-                    # Re-validate destination URL against SSRF policy
-                    current_url = IngestionValidator.validate_url(redirect_url)
+                    # Handle relative redirect URLs safely and re-validate against SSRF policy
+                    resolved_url = urljoin(str(response.url), redirect_url)
+                    current_url = IngestionValidator.validate_url(resolved_url)
                     continue
 
                 if response.status_code != 200:

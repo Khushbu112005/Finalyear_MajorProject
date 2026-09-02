@@ -1,23 +1,17 @@
 {
-  "name": "civicsphere-government",
+  "name": "civicsphere-ai",
   "version": "1.0.0",
-  "description": "Government Service Navigator module for CivicSphere AI",
+  "private": true,
+  "description": "CivicSphere AI Master Production Workspace",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "install-all": "npm install --legacy-peer-deps && npm install --prefix server --legacy-peer-deps && npm install --prefix client --legacy-peer-deps",
-    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
-    "seed": "npm run seed --prefix server",
-    "test": "npm run test --prefix server",
-    "evaluate": "npm run evaluate --prefix server"
-  },
-  "dependencies": {
-    "@google/generative-ai": "^0.11.0",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.6.2",
-    "helmet": "^8.3.0",
-    "mongoose": "^9.9.4",
-    "dotenv": "^17.4.2",
-    "concurrently": "^8.2.2"
+    "dev": "npm run dev --prefix apps/web",
+    "build": "npm run build --prefix apps/web",
+    "start": "npm run start --prefix apps/web",
+    "lint": "npm run lint --prefix apps/web"
   },
   "engines": {
     "node": ">=18.0.0"

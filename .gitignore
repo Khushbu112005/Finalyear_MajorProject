@@ -1,32 +1,26 @@
-node_modules/
+# Environment Variables & Secrets
 .env
 .env.*
 !.env.example
 
-dist/
-build/
-coverage/
-
-*.log
-
-.DS_Store
-Thumbs.db
-
-.vscode/
-.idea/
-# Node
+# Node / Frontend
 node_modules/
+.next/
 dist/
 build/
 coverage/
+.npm/
 
-# Python
+# Python & Virtual Environments
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
 env/
+venv/
+ENV/
+.venv/
 develop-eggs/
 downloads/
 eggs/
@@ -41,26 +35,33 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environments
-.env
-.env.*
-!.env.example
-.venv
-venv/
-ENV/
-
 # Testing & Coverage
 .pytest_cache/
 .coverage
 htmlcov/
+.tox/
+.nox/
 
-# Logs & OS
+# Local Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads & Local File Storage
+uploads/*
+!uploads/.gitkeep
+
+# Logs, OS & IDE Metadata
 *.log
 .DS_Store
 Thumbs.db
-
-# IDEs
 .idea/
 .vscode/
 *.swp
 *.swo
+
+# Session / Agent Scratch Artifacts
+task.md
+walkthrough.md
+implementation_plan.md
+scratch/
