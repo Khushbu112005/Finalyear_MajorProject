@@ -5,6 +5,11 @@ Mounts the production FastAPI application onto Gradio for 100% free hosting on C
 
 import sys
 from pathlib import Path
+import spaces
+
+@spaces.GPU
+def generate(prompt: str = "") -> str:
+    return prompt
 
 # Ensure root directory is on Python path
 root_dir = Path(__file__).resolve().parent
@@ -27,18 +32,6 @@ def root():
     }
 
 
-# ZeroGPU compatibility for Hugging Face Free Tier
-try:
-    import spaces
-
-    @spaces.GPU
-    def gpu_worker(prompt: str = ""):
-        return prompt
-except Exception:
-    def gpu_worker(prompt: str = ""):
-        return prompt
-
-
 # Create a lightweight Gradio interface providing documentation and status
 with gr.Blocks(title="CivicSphere AI — Unified Backend") as demo:
     gr.Markdown(
@@ -51,9 +44,12 @@ Welcome to the CivicSphere AI Production API service.
 - **Architecture**: Modular Monolith (Legal, Government, Knowledge Graph, Document AI, Cases, Agents)
 """
     )
-    # Wire to Gradio event graph so ZeroGPU detector registers the GPU dependency
-    keepalive_btn = gr.Button("GPU Keepalive", visible=False)
-    keepalive_btn.click(gpu_worker, inputs=None, outputs=None)
+    # ZeroGPU keepalive nodes
+    _inp = gr.Textbox(visible=False)
+    _out = gr.Textbox(visible=False)
+    _btn = gr.Button("Generate", visible=False)
+    _btn.click(generate, inputs=_inp, outputs=_out)
+
 
 
 # Mount Gradio onto the existing production FastAPI app
