@@ -35,7 +35,8 @@ try:
     def gpu_worker(prompt: str = ""):
         return prompt
 except Exception:
-    pass
+    def gpu_worker(prompt: str = ""):
+        return prompt
 
 
 # Create a lightweight Gradio interface providing documentation and status
@@ -50,6 +51,10 @@ Welcome to the CivicSphere AI Production API service.
 - **Architecture**: Modular Monolith (Legal, Government, Knowledge Graph, Document AI, Cases, Agents)
 """
     )
+    # Wire to Gradio event graph so ZeroGPU detector registers the GPU dependency
+    keepalive_btn = gr.Button("GPU Keepalive", visible=False)
+    keepalive_btn.click(gpu_worker, inputs=None, outputs=None)
+
 
 # Mount Gradio onto the existing production FastAPI app
 app = gr.mount_gradio_app(fastapi_app, demo, path="/gradio")
