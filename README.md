@@ -1,3 +1,12 @@
+---
+title: CivicSphere AI Unified Backend
+emoji: 🏛️
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+---
+
 # CivicSphere AI — National Civic & Legal Intelligence Platform
 
 [![CI/CD Pipeline](https://github.com/Khushbu112005/Finalyear_MajorProject/actions/workflows/ci.yml/badge.svg)](https://github.com/Khushbu112005/Finalyear_MajorProject/actions)
