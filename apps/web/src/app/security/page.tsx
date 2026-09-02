@@ -27,7 +27,7 @@ export default function SecurityPage() {
             <CheckCircle2 className="w-4 h-4 text-green-600" /> Prompt Injection Defense
           </h3>
           <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-            All user inputs pass through multi-layer injection heuristics and are encapsulated in structural `<data_boundary>` tags before LLM processing.
+            All user inputs pass through multi-layer injection heuristics and are encapsulated in structural &lt;data_boundary&gt; tags before LLM processing.
           </p>
         </div>
 

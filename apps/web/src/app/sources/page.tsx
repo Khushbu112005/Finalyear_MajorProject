@@ -13,7 +13,7 @@ export default function SourcesExplorerPage() {
   useEffect(() => {
     async function loadSources() {
       try {
-        const resp = await api.knowledge.sources();
+        const resp = await api.knowledge.listSources();
         setSources(resp.data || []);
       } catch (err) {
         console.error("Failed to load sources:", err);
