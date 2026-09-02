@@ -1,0 +1,1 @@
+"""Legal guidance module package."""

@@ -19,6 +19,13 @@ from packages.schemas.contracts import (
     SecurityEvent,
     AgentToolCall,
     AgentRun,
+    LegalQuery,
+    LegalAnswer,
+    EligibilityRule,
+    GovernmentProcedure,
+    GovernmentService,
+    DocumentAnalysis,
+    Document,
 )
 
 __all__ = [
@@ -40,4 +47,11 @@ __all__ = [
     "SecurityEvent",
     "AgentToolCall",
     "AgentRun",
+    "LegalQuery",
+    "LegalAnswer",
+    "EligibilityRule",
+    "GovernmentProcedure",
+    "GovernmentService",
+    "DocumentAnalysis",
+    "Document",
 ]

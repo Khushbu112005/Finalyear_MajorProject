@@ -19,6 +19,24 @@ class InMemoryVectorStore(VectorStore):
         self._metadata: Dict[str, Dict[str, Any]] = {}  # chunk_id -> metadata
         self._chunks: Dict[str, ChunkRecord] = {}
 
+    async def insert(
+        self,
+        chunk_id: str,
+        source_id: str,
+        vector: List[float],
+        text: str,
+        metadata: Dict[str, Any]
+    ) -> None:
+        await self.insert_vector(chunk_id, vector, {**metadata, "source_id": source_id, "text": text})
+
+    async def insert_batch(
+        self,
+        records: List[Tuple[str, str, List[float], str, Dict[str, Any]]]
+    ) -> int:
+        for chunk_id, source_id, vector, text, metadata in records:
+            await self.insert(chunk_id, source_id, vector, text, metadata)
+        return len(records)
+
     async def insert_vector(
         self,
         vector_id: str,

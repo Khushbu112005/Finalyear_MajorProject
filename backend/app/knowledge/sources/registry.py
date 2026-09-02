@@ -128,6 +128,10 @@ class SourceRegistry:
             results = [s for s in results if s.verification_status == verification_status]
         return results[:limit]
 
+    def list_active_sources(self) -> List[SourceRecord]:
+        return [s for s in self._sources.values() if s.verification_status == VerificationStatus.ACTIVE]
+
+
     def get_versions(self, source_id: str) -> List[SourceVersionRecord]:
         if source_id not in self._sources:
             raise NotFoundException(f"Source with id '{source_id}' not found.")

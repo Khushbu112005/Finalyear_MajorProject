@@ -47,6 +47,11 @@ class IngestionValidationException(CivicSphereException):
         super().__init__(code="INGESTION_VALIDATION_FAILED", message=message, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, details=details)
 
 
+class ValidationException(CivicSphereException):
+    def __init__(self, message: str = "Validation failed", details: dict = None):
+        super().__init__(code="VALIDATION_FAILED", message=message, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, details=details)
+
+
 class RateLimitExceededException(CivicSphereException):
     def __init__(self, message: str = "Rate limit exceeded", details: dict = None):
         super().__init__(code="RATE_LIMIT_EXCEEDED", message=message, status_code=status.HTTP_429_TOO_MANY_REQUESTS, details=details)

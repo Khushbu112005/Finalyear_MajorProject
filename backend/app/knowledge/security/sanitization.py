@@ -13,9 +13,21 @@ class PIISanitizer:
 
     EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
     PHONE_PATTERN = re.compile(r"(?:\+91[\-\s]?)?[6-9]\d{9}\b")
-    AADHAAR_PATTERN = re.compile(r"\b\d{4}\s\d{4}\s\d{4}\b")
+    AADHAAR_PATTERN = re.compile(r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}\b")
     SSN_PATTERN = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
     DOB_PATTERN = re.compile(r"\b(?:DOB|Date of Birth)[\s:]+\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b", re.IGNORECASE)
+
+    @classmethod
+    def mask_pii(cls, text: str) -> Tuple[str, bool]:
+        """
+        Masks PII from text and returns (masked_text, was_masked).
+        """
+        sanitized, has_pii, _ = cls.sanitize_text(text)
+        # Normalize tags
+        sanitized = sanitized.replace("[REDACTED_AADHAAR]", "[AADHAAR_MASKED]")
+        sanitized = sanitized.replace("[REDACTED_PHONE]", "[PHONE_MASKED]")
+        sanitized = sanitized.replace("[REDACTED_EMAIL]", "[EMAIL_MASKED]")
+        return sanitized, has_pii
 
     @classmethod
     def sanitize_text(cls, text: str) -> Tuple[str, bool, Dict[str, int]]:

@@ -24,7 +24,10 @@ export const protect = async (req, res, next) => {
       }
 
       // Verify token
-      const secret = process.env.JWT_SECRET || 'civicsphere_fallback_jwt_secret_key_2026';
+      const secret = process.env.JWT_SECRET;
+      if (!secret) {
+        throw new Error('JWT_SECRET environment variable is missing.');
+      }
       const decoded = jwt.verify(token, secret);
 
       // Find user by ID without returning password

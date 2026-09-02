@@ -30,6 +30,13 @@ class PromptInjectionDetector:
         return len(detected) > 0, detected
 
     @classmethod
+    def detect_injection(cls, text: str) -> bool:
+        """Convenience method returning True if prompt injection is detected."""
+        is_inj, _ = cls.analyze_for_injection(text)
+        return is_inj
+
+
+    @classmethod
     def wrap_as_data_boundary(cls, untrusted_content: str, label: str = "RETRIEVED_DOCUMENT") -> str:
         """
         Encapsulates untrusted retrieved content inside explicit XML data boundaries,

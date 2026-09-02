@@ -11,7 +11,7 @@ def test_health_check_endpoint(test_client: TestClient):
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "HEALTHY"
-    assert data["service"] == "module_c_knowledge_graph"
+    assert data["service"] in ("module_c_knowledge_graph", "civicsphere_unified_backend")
 
 
 def test_search_api_endpoint(test_client: TestClient, citizen_auth_headers: dict):

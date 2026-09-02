@@ -3,6 +3,11 @@ Pytest Test Fixtures for CivicSphere Module C.
 Configures test environment, initializes seed data, and provides test client.
 """
 
+import os
+os.environ["ENVIRONMENT"] = "test"
+os.environ["JWT_SECRET_KEY"] = "test-jwt-secret-key-32-chars-minimum-length!"
+os.environ["NEO4J_PASSWORD"] = "test-neo4j-secure-password-123!"
+
 import asyncio
 import pytest
 from fastapi.testclient import TestClient
