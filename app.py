@@ -27,6 +27,17 @@ def root():
     }
 
 
+# ZeroGPU compatibility for Hugging Face Free Tier
+try:
+    import spaces
+
+    @spaces.GPU
+    def gpu_worker(prompt: str = ""):
+        return prompt
+except Exception:
+    pass
+
+
 # Create a lightweight Gradio interface providing documentation and status
 with gr.Blocks(title="CivicSphere AI — Unified Backend") as demo:
     gr.Markdown(
