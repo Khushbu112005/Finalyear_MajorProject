@@ -1,4 +1,4 @@
-﻿"""
+"""
 Automated Verification Script for Hosted Supabase PostgreSQL + pgvector.
 Gate 2 Deployment Verification.
 Executes:
@@ -33,28 +33,11 @@ def get_db_urls():
     return app_url, migration_url
 
 
-async def run_verification():
-    app_url, migration_url = get_db_urls()
-    print("==================================================================")
-    print("  CIVICSPHERE AI: GATE 2 HOSTED POSTGRESQL VERIFICATION AUDIT")
-    print("==================================================================")
-
-    # Convert to asyncpg if needed
-    if app_url.startswith("postgresql://"):
-        async_app_url = app_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    else:
-        async_app_url = app_url
-
-    if migration_url.startswith("postgresql://"):
-        async_migration_url = migration_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    else:
-        async_migration_url = migration_url
-
-    # Check 1 & 2: Connection & Version
-    print("\n[CHECK 1 & 2] Connecting to hosted PostgreSQL...")
-    engine = create_async_engine(async_migration_url, connect_args={"statement_cache_size": 0})
+async def check_connection_and_pgvector(async_url: str):
+    engine = create_async_engine(async_url, connect_args={"statement_cache_size": 0})
     try:
         async with engine.connect() as conn:
+            # Check 1 & 2
             ver_res = await conn.execute(text("SELECT version();"))
             version_str = ver_res.scalar()
             print(f"  --> Connection: SUCCESS")
@@ -73,7 +56,7 @@ async def run_verification():
             if vec_row:
                 print(f"  --> pgvector Extension: FOUND ({vec_row[0]} v{vec_row[1]})")
             else:
-                print("  --> pgvector Extension: NOT FOUND (Run 'CREATE EXTENSION vector;' in Supabase SQL editor)")
+                print("  --> pgvector Extension: NOT FOUND")
                 sys.exit(1)
 
             # Check 9: pgvector cosine similarity calculation
@@ -83,10 +66,77 @@ async def run_verification():
             assert abs(sim_score - 1.0) < 1e-5, f"Vector similarity unexpected: {sim_score}"
             print(f"  --> Cosine similarity operation: SUCCESS (Self-cosine score: {sim_score})")
 
-    except Exception as e:
-        print(f"  --> FATAL connection failed: {e}")
+    finally:
         await engine.dispose()
-        sys.exit(1)
+
+
+async def verify_tables_and_query(async_url: str):
+    engine = create_async_engine(async_url, connect_args={"statement_cache_size": 0})
+    try:
+        async with engine.connect() as conn:
+            res = await conn.execute(text(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema = 'public' ORDER BY table_name;"
+            ))
+            tables = [row[0] for row in res.fetchall()]
+            print(f"  Found public tables: {tables}")
+            required_tables = [
+                "users", "cases", "documents", "government_services",
+                "audit_events", "security_events", "alembic_version"
+            ]
+            for t in required_tables:
+                assert t in tables, f"Required table missing: {t}"
+                print(f"  [OK] Table '{t}' verified")
+
+            idx_res = await conn.execute(text(
+                "SELECT tablename, indexname FROM pg_indexes "
+                "WHERE schemaname = 'public' ORDER BY tablename, indexname;"
+            ))
+            indexes = idx_res.fetchall()
+            print(f"  --> Verified {len(indexes)} database indexes across canonical tables.")
+
+            # Check 10: Live SQLAlchemy Async application query
+            print("\n[CHECK 10] Testing live SQLAlchemy async application query & rollback...")
+            test_id = "test_verify_gate2"
+            await conn.execute(text("""
+                INSERT INTO users (id, email, name, hashed_password, role, is_active, is_verified)
+                VALUES (:id, 'verify@civicsphere.internal', 'Verification User', 'hashed_pass_placeholder', 'CITIZEN', true, true);
+            """), {"id": test_id})
+            await conn.commit()
+
+            q_res = await conn.execute(text("SELECT id, email, role FROM users WHERE id = :id;"), {"id": test_id})
+            u_row = q_res.fetchone()
+            assert u_row and u_row[0] == test_id, "Inserted test record not retrieved!"
+            print(f"  --> Inserted & retrieved test user record: {u_row[1]} ({u_row[2]})")
+
+            await conn.execute(text("DELETE FROM users WHERE id = :id;"), {"id": test_id})
+            await conn.commit()
+            print("  --> Safely cleaned up temporary verification record.")
+
+    finally:
+        await engine.dispose()
+
+
+def run_verification():
+    app_url, migration_url = get_db_urls()
+    print("==================================================================")
+    print("  CIVICSPHERE AI: GATE 2 HOSTED POSTGRESQL VERIFICATION AUDIT")
+    print("==================================================================")
+
+    # Convert to asyncpg if needed
+    if app_url.startswith("postgresql://"):
+        async_app_url = app_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    else:
+        async_app_url = app_url
+
+    if migration_url.startswith("postgresql://"):
+        async_migration_url = migration_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    else:
+        async_migration_url = migration_url
+
+    # Check 1, 2, 3, 9
+    print("\n[CHECK 1 & 2] Connecting to hosted PostgreSQL...")
+    asyncio.run(check_connection_and_pgvector(async_migration_url))
 
     # Check 4: Alembic upgrade head
     print("\n[CHECK 4] Running Alembic upgrade head on hosted PostgreSQL...")
@@ -108,53 +158,9 @@ async def run_verification():
     except Exception as e:
         print(f"  --> Alembic check result: {e}")
 
-    # Check 7 & 8: Tables and indexes
+    # Check 7, 8, 10
     print("\n[CHECK 7 & 8] Verifying canonical tables and indexes...")
-    async with engine.connect() as conn:
-        res = await conn.execute(text("""
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            ORDER BY table_name;
-        """))
-        tables = [row[0] for row in res.fetchall()]
-        print(f"  Found public tables: {tables}")
-        required_tables = [
-            "users", "cases", "documents", "government_services",
-            "audit_events", "security_events", "alembic_version"
-        ]
-        for t in required_tables:
-            assert t in tables, f"Required table missing: {t}"
-            print(f"  [OK] Table '{t}' verified")
-
-        idx_res = await conn.execute(text("""
-            SELECT tablename, indexname 
-            FROM pg_indexes 
-            WHERE schemaname = 'public' 
-            ORDER BY tablename, indexname;
-        """))
-        indexes = idx_res.fetchall()
-        print(f"  --> Verified {len(indexes)} database indexes across canonical tables.")
-
-        # Check 10: Live SQLAlchemy Async application query
-        print("\n[CHECK 10] Testing live SQLAlchemy async application query & rollback...")
-        test_id = "test_verify_gate2"
-        await conn.execute(text("""
-            INSERT INTO users (id, email, name, hashed_password, role, is_active, is_verified)
-            VALUES (:id, 'verify@civicsphere.internal', 'Verification User', 'hashed_pass_placeholder', 'CITIZEN', true, true);
-        """), {"id": test_id})
-        await conn.commit()
-
-        q_res = await conn.execute(text("SELECT id, email, role FROM users WHERE id = :id;"), {"id": test_id})
-        u_row = q_res.fetchone()
-        assert u_row and u_row[0] == test_id, "Inserted test record not retrieved!"
-        print(f"  --> Inserted & retrieved test user record: {u_row[1]} ({u_row[2]})")
-
-        await conn.execute(text("DELETE FROM users WHERE id = :id;"), {"id": test_id})
-        await conn.commit()
-        print("  --> Safely cleaned up temporary verification record.")
-
-    await engine.dispose()
+    asyncio.run(verify_tables_and_query(async_migration_url))
 
     print("\n==================================================================")
     print("  ALL 10 HOSTED POSTGRESQL VERIFICATION CHECKS PASSED!")
@@ -162,4 +168,4 @@ async def run_verification():
 
 
 if __name__ == "__main__":
-    asyncio.run(run_verification())
+    run_verification()
