@@ -1,5 +1,5 @@
 import React from "react";
-import { Lock, ShieldCheck, EyeOff } from "lucide-react";
+import { Lock } from "lucide-react";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -36,7 +36,7 @@ export default function PrivacyPolicyPage() {
             2. Strict IDOR Isolation
           </h2>
           <p>
-            All case files, consultation transcripts, and uploaded notices are tied directly to authenticated user UUIDs. No user or third-party entity can access another citizen's case records.
+            All case files, consultation transcripts, and uploaded notices are tied directly to authenticated user UUIDs. No user or third-party entity can access another citizen&apos;s case records.
           </p>
         </div>
       </div>

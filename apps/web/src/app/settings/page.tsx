@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sliders, Moon, Globe, Shield } from "lucide-react";
+import { Sliders } from "lucide-react";
 
 export default function SettingsPage() {
   const [lang, setLang] = useState("EN");

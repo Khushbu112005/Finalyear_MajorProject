@@ -3,25 +3,23 @@
 import React, { useState, useEffect } from "react";
 import { 
   Landmark, 
-  Search, 
   CheckCircle2, 
   XCircle, 
   ExternalLink, 
-  Filter, 
   Clock, 
   FileText,
-  Sparkles,
-  ArrowRight
+  Sparkles
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import type { GovScheme, EligibilityAssessment, ProcedureStep } from "@/lib/types";
 
 export default function GovernmentNavigatorPage() {
   const [problemText, setProblemText] = useState("");
   const [income, setIncome] = useState("");
   const [category, setCategory] = useState("General");
-  const [services, setServices] = useState<any[]>([]);
-  const [selectedService, setSelectedService] = useState<any | null>(null);
-  const [eligibilityResult, setEligibilityResult] = useState<any | null>(null);
+  const [services, setServices] = useState<GovScheme[]>([]);
+  const [selectedService, setSelectedService] = useState<GovScheme | null>(null);
+  const [eligibilityResult, setEligibilityResult] = useState<EligibilityAssessment | null>(null);
   const [loading, setLoading] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(true);
 
@@ -58,7 +56,7 @@ export default function GovernmentNavigatorPage() {
     }
   };
 
-  const handleCheckEligibility = async (service: any) => {
+  const handleCheckEligibility = async (service: GovScheme) => {
     try {
       const res = await api.government.checkEligibility({
         service_id: service.service_id,
@@ -274,21 +272,25 @@ export default function GovernmentNavigatorPage() {
                     Application Steps & Procedure
                   </h3>
                   <div className="space-y-3">
-                    {selectedService.procedure_steps.map((step: any, i: number) => (
-                      <div key={i} className="flex items-start gap-3 text-xs">
-                        <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold flex items-center justify-center flex-shrink-0 text-xs">
-                          {i + 1}
+                    {selectedService.procedure_steps.map((step: ProcedureStep | string, i: number) => {
+                      const stepTitle = typeof step === "string" ? `Step ${i + 1}` : step.step_title || `Step ${i + 1}`;
+                      const stepDesc = typeof step === "string" ? step : step.description || "";
+                      return (
+                        <div key={i} className="flex items-start gap-3 text-xs">
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold flex items-center justify-center flex-shrink-0 text-xs">
+                            {i + 1}
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900 dark:text-white">
+                              {stepTitle}
+                            </p>
+                            <p className="text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">
+                              {stepDesc}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-gray-900 dark:text-white">
-                            {step.step_title || `Step ${i + 1}`}
-                          </p>
-                          <p className="text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">
-                            {step.description || step}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

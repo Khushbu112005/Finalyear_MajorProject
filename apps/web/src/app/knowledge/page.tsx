@@ -4,21 +4,17 @@ import React, { useState, useEffect } from "react";
 import { 
   Network, 
   Search, 
-  BookOpen, 
   Share2, 
-  ExternalLink, 
-  Layers, 
-  CheckCircle2,
-  Sparkles
+  ExternalLink
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import type { KnowledgeSource, KnowledgeSearchResult, GraphNeighborhood, KnowledgeItem } from "@/lib/types";
 
 export default function KnowledgeGraphPage() {
   const [query, setQuery] = useState("");
-  const [sources, setSources] = useState<any[]>([]);
-  const [searchResults, setSearchResults] = useState<any | null>(null);
-  const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
-  const [neighborhood, setNeighborhood] = useState<any | null>(null);
+  const [sources, setSources] = useState<KnowledgeSource[]>([]);
+  const [searchResults, setSearchResults] = useState<KnowledgeSearchResult | null>(null);
+  const [neighborhood, setNeighborhood] = useState<GraphNeighborhood | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -133,13 +129,39 @@ export default function KnowledgeGraphPage() {
 
         {/* Search Results & Graph Subgraph Visualization */}
         <div className="lg:col-span-2 space-y-6">
+          {neighborhood && (
+            <div className="p-5 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300">
+                  Graph Neighborhood Subgraph ({neighborhood.nodes?.length || 0} Entities, {neighborhood.edges?.length || 0} Relations)
+                </h3>
+                <button
+                  onClick={() => setNeighborhood(null)}
+                  className="text-xs text-purple-600 hover:underline font-semibold"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {neighborhood.nodes?.map((node, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2.5 py-1 bg-white dark:bg-gray-900 border border-purple-200 dark:border-purple-800 rounded-lg text-xs font-medium text-purple-900 dark:text-purple-200"
+                  >
+                    {node.label || node.id}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {searchResults ? (
             <div className="space-y-4">
               <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">
                 Retrieved Evidence Items ({searchResults.items?.length || 0})
               </h2>
 
-              {searchResults.items?.map((item: any, i: number) => (
+              {searchResults.items?.map((item: KnowledgeItem, i: number) => (
                 <div
                   key={i}
                   className="p-5 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm space-y-3"

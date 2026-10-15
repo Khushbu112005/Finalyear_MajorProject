@@ -4,22 +4,19 @@ import React, { useState } from "react";
 import { 
   Bot, 
   Send, 
-  Sparkles, 
-  CheckCircle2, 
-  Layers, 
-  Clock, 
   Cpu, 
   User,
   ShieldCheck
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import type { AgentToolCall } from "@/lib/types";
 
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   agentName?: string;
   stepsExecuted?: number;
-  toolCalls?: any[];
+  toolCalls?: AgentToolCall[];
 }
 
 export default function AgentChatPage() {
@@ -55,12 +52,17 @@ export default function AgentChatPage() {
           toolCalls: data.tool_calls || [],
         },
       ]);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ||
+            "Unable to reach specialist agents.";
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `Agent execution notice: ${err.message || "Unable to reach specialist agents."}`,
+          content: `Agent execution notice: ${message}`,
           agentName: "System",
         },
       ]);
@@ -138,7 +140,7 @@ export default function AgentChatPage() {
                   <p className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
                     <Cpu className="w-3 h-3" /> Tools Invoked ({msg.toolCalls.length}):
                   </p>
-                  {msg.toolCalls.map((tc: any, tci: number) => (
+                  {msg.toolCalls.map((tc: AgentToolCall, tci: number) => (
                     <div
                       key={tci}
                       className="px-2 py-1 rounded bg-gray-50 dark:bg-gray-800 text-[10px] text-gray-600 dark:text-gray-400 flex items-center justify-between"

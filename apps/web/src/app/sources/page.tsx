@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { BookOpen, ShieldCheck, ExternalLink, Search, RefreshCw } from "lucide-react";
+import { BookOpen, ShieldCheck, ExternalLink, Search } from "lucide-react";
 import { api } from "@/lib/api-client";
+import type { KnowledgeSource } from "@/lib/types";
 
 export default function SourcesExplorerPage() {
-  const [sources, setSources] = useState<any[]>([]);
+  const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 

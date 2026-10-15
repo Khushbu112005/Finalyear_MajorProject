@@ -4,19 +4,14 @@ import React, { useState, useEffect } from "react";
 import { 
   Briefcase, 
   Plus, 
-  Clock, 
-  CheckCircle2, 
-  AlertCircle, 
-  MapPin, 
-  Trash2,
-  Calendar,
-  Filter
+  Trash2
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import type { CaseItem } from "@/lib/types";
 
 export default function CaseWorkspacePage() {
-  const [cases, setCases] = useState<any[]>([]);
-  const [selectedCase, setSelectedCase] = useState<any | null>(null);
+  const [cases, setCases] = useState<CaseItem[]>([]);
+  const [selectedCase, setSelectedCase] = useState<CaseItem | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -24,21 +19,33 @@ export default function CaseWorkspacePage() {
   const [priority, setPriority] = useState("MEDIUM");
   const [location, setLocation] = useState("");
 
-  useEffect(() => {
-    loadCases();
-  }, []);
-
-  const loadCases = async () => {
+  const refreshCases = async () => {
     try {
       const res = await api.cases.list();
-      setCases(res.data || []);
-      if (res.data?.length > 0 && !selectedCase) {
-        setSelectedCase(res.data[0]);
-      }
+      const caseList = res.data || [];
+      setCases(caseList);
+      setSelectedCase((prev) => prev || (caseList.length > 0 ? caseList[0] : null));
     } catch (e) {
       console.error(e);
     }
   };
+
+  useEffect(() => {
+    let active = true;
+    api.cases.list()
+      .then((res) => {
+        if (active) {
+          const caseList = res.data || [];
+          setCases(caseList);
+          setSelectedCase((prev) => prev || (caseList.length > 0 ? caseList[0] : null));
+        }
+      })
+      .catch((e) => console.error(e));
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleCreateCase = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +62,7 @@ export default function CaseWorkspacePage() {
       setShowModal(false);
       setTitle("");
       setDescription("");
-      await loadCases();
+      await refreshCases();
       setSelectedCase(res.data);
     } catch (e) {
       console.error(e);
@@ -67,7 +74,7 @@ export default function CaseWorkspacePage() {
     try {
       await api.cases.delete(caseId);
       setSelectedCase(null);
-      await loadCases();
+      await refreshCases();
     } catch (e) {
       console.error(e);
     }
@@ -240,6 +247,37 @@ export default function CaseWorkspacePage() {
                   placeholder="Provide background context and current status..."
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs resize-none"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Priority
+                  </label>
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs"
+                  >
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="URGENT">URGENT</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="e.g. Maharashtra"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">

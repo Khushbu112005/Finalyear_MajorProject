@@ -5,17 +5,14 @@ import {
   Sliders, 
   ShieldCheck, 
   Database, 
-  RefreshCw, 
-  Layers, 
-  AlertTriangle,
-  Lock,
   Activity
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import type { KnowledgeSource, AgentTool } from "@/lib/types";
 
 export default function AdminPage() {
-  const [sources, setSources] = useState<any[]>([]);
-  const [tools, setTools] = useState<any[]>([]);
+  const [sources, setSources] = useState<KnowledgeSource[]>([]);
+  const [tools, setTools] = useState<AgentTool[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -106,20 +103,34 @@ export default function AdminPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {sources.map((src) => (
-                <tr key={src.source_id} className="text-gray-700 dark:text-gray-300">
-                  <td className="py-3 font-semibold text-gray-900 dark:text-white">
-                    {src.title}
-                  </td>
-                  <td className="py-3">{src.publisher}</td>
-                  <td className="py-3">{src.jurisdiction}</td>
-                  <td className="py-3">
-                    <span className="text-[10px] font-bold text-green-700 bg-green-100 dark:bg-green-950 px-2 py-0.5 rounded-full">
-                      ACTIVE
-                    </span>
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="py-6 text-center text-xs text-gray-500">
+                    Loading statutory sources...
                   </td>
                 </tr>
-              ))}
+              ) : sources.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-6 text-center text-xs text-gray-500">
+                    No sources currently registered.
+                  </td>
+                </tr>
+              ) : (
+                sources.map((src) => (
+                  <tr key={src.source_id} className="text-gray-700 dark:text-gray-300">
+                    <td className="py-3 font-semibold text-gray-900 dark:text-white">
+                      {src.title}
+                    </td>
+                    <td className="py-3">{src.publisher}</td>
+                    <td className="py-3">{src.jurisdiction}</td>
+                    <td className="py-3">
+                      <span className="text-[10px] font-bold text-green-700 bg-green-100 dark:bg-green-950 px-2 py-0.5 rounded-full">
+                        ACTIVE
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

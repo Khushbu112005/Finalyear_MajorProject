@@ -17,15 +17,24 @@ export default function AdminSecurityPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="p-4 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-          <span className="text-xs text-gray-500">Prompt Injections Blocked</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Prompt Injections Blocked</span>
+            <ShieldAlert className="w-4 h-4 text-green-600" />
+          </div>
           <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">100%</p>
         </div>
         <div className="p-4 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-          <span className="text-xs text-gray-500">SSRF Attempts Blocked</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">SSRF Attempts Blocked</span>
+            <Lock className="w-4 h-4 text-green-600" />
+          </div>
           <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">100%</p>
         </div>
         <div className="p-4 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-          <span className="text-xs text-gray-500">Active PDF Exploits Blocked</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Active PDF Exploits Blocked</span>
+            <CheckCircle2 className="w-4 h-4 text-green-600" />
+          </div>
           <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">100%</p>
         </div>
       </div>

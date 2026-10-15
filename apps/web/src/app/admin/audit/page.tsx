@@ -1,11 +1,7 @@
-"use client";
-
-import React, { useState, useEffect } from "react";
-import { Sliders, ShieldAlert, Clock, Database } from "lucide-react";
-import { api } from "@/lib/api-client";
+import React from "react";
+import { Database } from "lucide-react";
 
 export default function AdminAuditPage() {
-  const [events, setEvents] = useState<any[]>([]);
 
   return (
     <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">

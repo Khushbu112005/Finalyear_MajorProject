@@ -1,5 +1,5 @@
 import React from "react";
-import { ShieldCheck, Lock, CheckCircle2, AlertTriangle } from "lucide-react";
+import { ShieldCheck, CheckCircle2 } from "lucide-react";
 
 export default function SecurityPage() {
   return (

@@ -4,6 +4,22 @@
  * error normalization, and typed domain operations across all 6 modules.
  */
 
+import type {
+  User,
+  CaseItem,
+  DocumentItem,
+  LegalGuidance,
+  LegalAct,
+  GovScheme,
+  GovAnalysisResponse,
+  GovEligibilityResponse,
+  KnowledgeSource,
+  KnowledgeSearchResult,
+  GraphNeighborhood,
+  AgentTool,
+  AgentChatResponse,
+} from './types';
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -16,7 +32,7 @@ export interface ApiResponse<T> {
 export interface ApiError {
   code: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 function getCsrfToken(): string | null {
@@ -75,21 +91,21 @@ export const api = {
   // 1. Auth & Profile
   auth: {
     login: (credentials: { email: string; password: string }) =>
-      request<{ user: any; message: string }>('/auth/login', {
+      request<{ user: User; message: string }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify(credentials),
       }),
     register: (userData: { name: string; email: string; password: string; role?: string; phone?: string }) =>
-      request<{ user: any; message: string }>('/auth/register', {
+      request<{ user: User; message: string }>('/auth/register', {
         method: 'POST',
         body: JSON.stringify(userData),
       }),
     logout: () =>
       request<{ message: string }>('/auth/logout', { method: 'POST' }),
     me: () =>
-      request<{ user: any }>('/auth/me'),
+      request<{ user: User }>('/auth/me'),
     updateProfile: (profileData: { name?: string; phone?: string }) =>
-      request<{ user: any }>('/auth/profile', {
+      request<{ user: User }>('/auth/profile', {
         method: 'PUT',
         body: JSON.stringify(profileData),
       }),
@@ -97,30 +113,30 @@ export const api = {
 
   // 2. Legal Guidance (Module A)
   legal: {
-    query: (queryData: { query: string; jurisdiction?: string; user_context?: any }) =>
-      request<any>('/legal/query', {
+    query: (queryData: { query: string; jurisdiction?: string; user_context?: Record<string, unknown> }) =>
+      request<LegalGuidance>('/legal/query', {
         method: 'POST',
         body: JSON.stringify(queryData),
       }),
     listActs: () =>
-      request<any[]>('/legal/acts'),
+      request<LegalAct[]>('/legal/acts'),
   },
 
   // 3. Government Schemes & Navigation (Module B)
   government: {
-    analyze: (problemData: { problem_text: string; citizen_context?: any; jurisdiction?: string }) =>
-      request<{ analysis: any; services: any[] }>('/government/analyze', {
+    analyze: (problemData: { problem_text: string; citizen_context?: Record<string, unknown>; jurisdiction?: string }) =>
+      request<GovAnalysisResponse>('/government/analyze', {
         method: 'POST',
         body: JSON.stringify(problemData),
       }),
     listServices: (params?: { category?: string; jurisdiction?: string }) => {
-      const qs = new URLSearchParams(params as any).toString();
-      return request<any[]>(`/government/services${qs ? `?${qs}` : ''}`);
+      const qs = params ? new URLSearchParams(params as Record<string, string>).toString() : '';
+      return request<GovScheme[]>(`/government/services${qs ? `?${qs}` : ''}`);
     },
     getService: (serviceId: string) =>
-      request<any>(`/government/services/${serviceId}`),
-    checkEligibility: (data: { service_id: string; citizen_context: any }) =>
-      request<{ service_id: string; eligibility: any }>('/government/check-eligibility', {
+      request<GovScheme>(`/government/services/${serviceId}`),
+    checkEligibility: (data: { service_id: string; citizen_context: Record<string, unknown> }) =>
+      request<GovEligibilityResponse>('/government/check-eligibility', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -132,32 +148,32 @@ export const api = {
       const formData = new FormData();
       formData.append('file', file);
       if (caseId) formData.append('case_id', caseId);
-      return request<any>('/documents/upload', {
+      return request<DocumentItem>('/documents/upload', {
         method: 'POST',
         body: formData,
       });
     },
     list: (caseId?: string) =>
-      request<any[]>(`/documents${caseId ? `?case_id=${caseId}` : ''}`),
+      request<DocumentItem[]>(`/documents${caseId ? `?case_id=${caseId}` : ''}`),
     get: (docId: string) =>
-      request<any>(`/documents/${docId}`),
+      request<DocumentItem>(`/documents/${docId}`),
   },
 
   // 5. Case Workspace (Module Cases)
   cases: {
     list: (filters?: { status?: string; priority?: string; category?: string; search?: string }) => {
-      const qs = new URLSearchParams(filters as any).toString();
-      return request<any[]>(`/cases${qs ? `?${qs}` : ''}`);
+      const qs = filters ? new URLSearchParams(filters as Record<string, string>).toString() : '';
+      return request<CaseItem[]>(`/cases${qs ? `?${qs}` : ''}`);
     },
     get: (caseId: string) =>
-      request<any>(`/cases/${caseId}`),
+      request<CaseItem>(`/cases/${caseId}`),
     create: (caseData: { title: string; description: string; category?: string; priority?: string; location?: string }) =>
-      request<any>('/cases', {
+      request<CaseItem>('/cases', {
         method: 'POST',
         body: JSON.stringify(caseData),
       }),
-    update: (caseId: string, caseData: any) =>
-      request<any>(`/cases/${caseId}`, {
+    update: (caseId: string, caseData: Partial<CaseItem>) =>
+      request<CaseItem>(`/cases/${caseId}`, {
         method: 'PUT',
         body: JSON.stringify(caseData),
       }),
@@ -168,26 +184,26 @@ export const api = {
   // 6. Knowledge & Neo4j Graph Engine (Module C)
   knowledge: {
     search: (queryData: { query: string; jurisdiction?: string; top_k?: number }) =>
-      request<any>('/knowledge/search', {
+      request<KnowledgeSearchResult>('/knowledge/search', {
         method: 'POST',
         body: JSON.stringify(queryData),
       }),
     getNeighborhood: (entityId: string, maxDepth: number = 2) =>
-      request<any>(`/knowledge/graph/neighborhood/${entityId}?max_depth=${maxDepth}`),
+      request<GraphNeighborhood>(`/knowledge/graph/neighborhood/${entityId}?max_depth=${maxDepth}`),
     listSources: () =>
-      request<any[]>('/knowledge/sources'),
+      request<KnowledgeSource[]>('/knowledge/sources'),
     sources: () =>
-      request<any[]>('/knowledge/sources'),
+      request<KnowledgeSource[]>('/knowledge/sources'),
   },
 
   // 7. Multi-Agent System & Tools (Phase 6)
   agents: {
-    chat: (chatData: { query: string; context?: any; jurisdiction?: string }) =>
-      request<any>('/agents/chat', {
+    chat: (chatData: { query: string; context?: Record<string, unknown>; jurisdiction?: string }) =>
+      request<AgentChatResponse>('/agents/chat', {
         method: 'POST',
         body: JSON.stringify(chatData),
       }),
     listTools: () =>
-      request<any[]>('/agents/tools'),
+      request<AgentTool[]>('/agents/tools'),
   },
 };

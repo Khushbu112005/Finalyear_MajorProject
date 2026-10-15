@@ -17,19 +17,31 @@ export default function AdminEvaluationPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
         <div className="p-4 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-          <span className="text-xs text-gray-500">Mean MRR</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Mean MRR</span>
+            <BarChart2 className="w-4 h-4 text-green-600" />
+          </div>
           <p className="text-xl font-bold text-green-600 mt-1">1.0000</p>
         </div>
         <div className="p-4 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-          <span className="text-xs text-gray-500">Precision@1</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Precision@1</span>
+            <CheckCircle2 className="w-4 h-4 text-green-600" />
+          </div>
           <p className="text-xl font-bold text-green-600 mt-1">1.0000</p>
         </div>
         <div className="p-4 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-          <span className="text-xs text-gray-500">Groundedness Score</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Groundedness Score</span>
+            <Activity className="w-4 h-4 text-green-600" />
+          </div>
           <p className="text-xl font-bold text-green-600 mt-1">98.0%</p>
         </div>
         <div className="p-4 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-          <span className="text-xs text-gray-500">Hallucination Rate</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Hallucination Rate</span>
+            <CheckCircle2 className="w-4 h-4 text-green-600" />
+          </div>
           <p className="text-xl font-bold text-green-600 mt-1">0.0%</p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Bell, CheckCircle2, Clock } from "lucide-react";
+import { Bell, Clock } from "lucide-react";
 
 export default function NotificationsPage() {
   const NOTIFICATIONS = [

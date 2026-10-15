@@ -7,18 +7,15 @@ import {
   Scale, 
   Compass, 
   FileText, 
-  Network, 
   Bot, 
   Plus, 
-  Clock, 
-  CheckCircle, 
-  ShieldCheck, 
   ArrowUpRight 
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import type { CaseItem } from "@/lib/types";
 
 export default function CitizenDashboardPage() {
-  const [cases, setCases] = useState<any[]>([]);
+  const [cases, setCases] = useState<CaseItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -132,7 +129,7 @@ export default function CitizenDashboardPage() {
           <div className="py-12 text-center text-xs text-gray-500">Loading cases...</div>
         ) : cases.length === 0 ? (
           <div className="py-12 text-center text-xs text-gray-500">
-            No active case workspaces found. Click "Open New Case Workspace" to begin.
+            No active case workspaces found. Click &quot;Open New Case Workspace&quot; to begin.
           </div>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-gray-800">

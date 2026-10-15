@@ -5,37 +5,47 @@ import {
   FileText, 
   UploadCloud, 
   ShieldCheck, 
-  CheckCircle2, 
   AlertCircle, 
-  Clock, 
-  Calendar, 
   Landmark, 
   Scale,
   FileCheck
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import type { DocumentItem } from "@/lib/types";
 
 export default function DocumentProcessingPage() {
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadDocuments();
-  }, []);
-
-  const loadDocuments = async () => {
+  const refreshDocuments = async () => {
     try {
       const res = await api.documents.list();
-      setDocuments(res.data || []);
-      if (res.data?.length > 0 && !selectedDoc) {
-        setSelectedDoc(res.data[0]);
-      }
+      const docList = res.data || [];
+      setDocuments(docList);
+      setSelectedDoc((prev) => prev || (docList.length > 0 ? docList[0] : null));
     } catch (e) {
       console.error(e);
     }
   };
+
+  useEffect(() => {
+    let active = true;
+    api.documents.list()
+      .then((res) => {
+        if (active) {
+          const docList = res.data || [];
+          setDocuments(docList);
+          setSelectedDoc((prev) => prev || (docList.length > 0 ? docList[0] : null));
+        }
+      })
+      .catch((e) => console.error(e));
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -47,9 +57,14 @@ export default function DocumentProcessingPage() {
     try {
       const res = await api.documents.upload(file);
       setSelectedDoc(res.data);
-      await loadDocuments();
-    } catch (err: any) {
-      setUploadError(err.message || "Document upload failed. Ensure file is a valid PDF under 10MB.");
+      await refreshDocuments();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ||
+            "Document upload failed. Ensure file is a valid PDF under 10MB.";
+      setUploadError(message);
     } finally {
       setUploading(false);
     }
@@ -136,7 +151,7 @@ export default function DocumentProcessingPage() {
                 </span>
               </div>
               <p className="text-[11px] text-gray-400 mt-2">
-                {new Date(doc.created_at).toLocaleDateString()} • {(doc.file_size_bytes / 1024).toFixed(1)} KB
+                {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : "Recent"} • {(((doc.file_size_bytes || doc.file_size || 0) / 1024)).toFixed(1)} KB
               </p>
             </div>
           ))}

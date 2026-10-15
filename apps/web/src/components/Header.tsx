@@ -2,21 +2,21 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Scale, 
   Search, 
   Globe, 
   Moon, 
   Sun, 
-  Bell, 
-  User as UserIcon, 
-  LogOut,
-  ShieldCheck
+  LogOut
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import type { User } from "@/lib/types";
 
 export function Header() {
-  const [user, setUser] = useState<any>(null);
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
   const [lang, setLang] = useState<"EN" | "HI">("EN");
   const [isDark, setIsDark] = useState<boolean>(false);
 
@@ -35,7 +35,7 @@ export function Header() {
     try {
       await api.auth.logout();
       setUser(null);
-      window.location.href = "/auth/login";
+      router.push("/auth/login");
     } catch (e) {
       console.error(e);
     }

@@ -2,10 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Scale, Lock, Mail, AlertCircle, ArrowRight } from "lucide-react";
 import { api } from "@/lib/api-client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -18,9 +20,14 @@ export default function LoginPage() {
 
     try {
       await api.auth.login({ email, password });
-      window.location.href = "/";
-    } catch (err: any) {
-      setError(err.message || "Invalid email or password. Please try again.");
+      router.push("/");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ||
+            "Invalid email or password. Please try again.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -94,7 +101,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href="/auth/register" className="font-bold text-green-700 dark:text-green-400 hover:underline">
             Register now
           </Link>

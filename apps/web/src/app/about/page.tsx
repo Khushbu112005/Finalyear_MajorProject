@@ -1,5 +1,5 @@
 import React from "react";
-import { Scale, Landmark, ShieldCheck, Heart } from "lucide-react";
+import { Scale, Landmark, ShieldCheck } from "lucide-react";
 
 export default function AboutPage() {
   return (

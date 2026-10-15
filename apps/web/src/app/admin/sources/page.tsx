@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { BookOpen, ExternalLink } from "lucide-react";
 import { api } from "@/lib/api-client";
+import type { KnowledgeSource } from "@/lib/types";
 
 export default function AdminSourcesPage() {
-  const [sources, setSources] = useState<any[]>([]);
+  const [sources, setSources] = useState<KnowledgeSource[]>([]);
 
   useEffect(() => {
     api.knowledge.listSources()
@@ -16,6 +17,14 @@ export default function AdminSourcesPage() {
   return (
     <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+            <BookOpen className="w-4 h-4" />
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+            Provenance Verification
+          </span>
+        </div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Official Statutory Sources Registry
         </h1>

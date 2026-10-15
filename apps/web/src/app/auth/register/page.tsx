@@ -2,10 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Scale, Lock, Mail, User, Phone, AlertCircle, ArrowRight } from "lucide-react";
 import { api } from "@/lib/api-client";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -21,9 +23,14 @@ export default function RegisterPage() {
 
     try {
       await api.auth.register({ name, email, password, role, phone });
-      window.location.href = "/";
-    } catch (err: any) {
-      setError(err.message || "Registration failed. Please check your details.");
+      router.push("/");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ||
+            "Registration failed. Please check your details.";
+      setError(message);
     } finally {
       setLoading(false);
     }

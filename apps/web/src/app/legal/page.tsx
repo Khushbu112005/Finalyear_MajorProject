@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { 
   Scale, 
-  Search, 
   ShieldAlert, 
   ExternalLink, 
   ChevronDown, 
@@ -15,10 +14,11 @@ import {
   Send
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import type { LegalGuidance, LegalSource } from "@/lib/types";
 
 export default function LegalGuidancePage() {
   const [query, setQuery] = useState("");
-  const [answer, setAnswer] = useState<any>(null);
+  const [answer, setAnswer] = useState<LegalGuidance | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -41,8 +41,13 @@ export default function LegalGuidancePage() {
     try {
       const res = await api.legal.query({ query: query.trim(), jurisdiction: "IN" });
       setAnswer(res.data);
-    } catch (err: any) {
-      setError(err.message || "Failed to retrieve legal guidance.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ||
+            "Failed to retrieve legal guidance.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -240,14 +245,14 @@ export default function LegalGuidancePage() {
                 8. Verified Official Citations ({answer.sources.length})
               </h4>
               <div className="space-y-2">
-                {answer.sources.map((src: any, i: number) => (
+                {answer.sources.map((src: LegalSource, i: number) => (
                   <div key={i} className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4">
                     <div className="text-xs">
                       <p className="font-bold text-gray-900 dark:text-white">
                         {src.source_id} {src.section ? `• Section ${src.section}` : ""}
                       </p>
                       <p className="text-gray-500 dark:text-gray-400 text-[11px] line-clamp-1 mt-0.5">
-                        "{src.passage}"
+                        &quot;{src.passage}&quot;
                       </p>
                     </div>
                     {src.official_url && (
