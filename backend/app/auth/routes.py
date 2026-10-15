@@ -106,12 +106,20 @@ async def register(
     db: AsyncSession = Depends(get_db_session)
 ):
     """Registers a new citizen or researcher account."""
+    requested_role = (payload.role or "CITIZEN").upper()
+    if settings.ENVIRONMENT == "production" and requested_role in ("ADMIN", "SYSTEM"):
+        raise CivicSphereException(
+            code="PRIVILEGE_ESCALATION_BLOCKED",
+            message="Public self-registration for administrative roles is disabled.",
+            status_code=403
+        )
+
     user, token = await register_user(
         session=db,
         email=payload.email,
         name=payload.name,
         password=payload.password,
-        role=payload.role or "CITIZEN",
+        role=requested_role,
         phone=payload.phone or "",
         specialization=payload.specialization or "",
         bar_council_id=payload.bar_council_id or "",

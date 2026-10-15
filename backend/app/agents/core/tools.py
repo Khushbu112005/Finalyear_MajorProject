@@ -77,7 +77,9 @@ class ToolRegistry:
         tool = self._tools[tool_name]
 
         # Role restriction check
-        if tool.required_roles and auth:
+        if tool.required_roles:
+            if not auth:
+                raise SecurityBlockedException(f"Authentication required to invoke restricted tool '{tool_name}'.")
             user_role = auth.role.upper() if auth.role else "CITIZEN"
             if user_role not in [r.upper() for r in tool.required_roles] and user_role != "ADMIN":
                 raise SecurityBlockedException(f"Role '{user_role}' is not authorized to invoke tool '{tool_name}'.")

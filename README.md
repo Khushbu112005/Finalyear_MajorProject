@@ -164,7 +164,15 @@ python infrastructure/scripts/run_benchmarks.py
 
 ---
 
-## 📚 Documentation
+## 📚 Audit & Engineering Documentation
+- [Master Audit Report](docs/audit/FULL_AUDIT_REPORT.md)
+- [Defect Remediation Log](docs/audit/REMEDIATION_LOG.md)
+- [Route & API Inventory](docs/audit/ROUTE_AND_API_INVENTORY.md)
+- [Function Coverage Matrix](docs/audit/FUNCTION_COVERAGE_MATRIX.md)
+- [Security Threat Model & Audit](docs/audit/SECURITY_AUDIT.md)
+- [Automated Test Results (92 Tests Passed)](docs/audit/TEST_RESULTS.md)
+- [Production Deployment Runbook](docs/audit/DEPLOYMENT_RUNBOOK.md)
+- [Production Readiness Scorecard](docs/audit/PRODUCTION_READINESS_SCORECARD.md)
 - [Traceability Matrix](docs/TRACEABILITY_MATRIX.md)
 - [Security Threat Model & Defenses](docs/SECURITY_THREAT_MODEL.md)
 

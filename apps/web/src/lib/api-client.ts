@@ -30,7 +30,8 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   const isServer = typeof window === 'undefined';
-  const backendBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+  const rawBackend = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+  const backendBase = rawBackend.replace(/\/+$/, '');
   const baseUrl = isServer ? `${backendBase}/api/v1` : '/api/v1';
   const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 

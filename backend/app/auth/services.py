@@ -77,11 +77,18 @@ async def register_user(
             status_code=400
         )
 
-    # Validate role
+    # Validate role and enforce privilege separation
     role_str = role.upper()
     valid_roles = [r.value for r in UserRole]
     if role_str not in valid_roles:
         role_str = "CITIZEN"
+
+    if settings.ENVIRONMENT == "production" and role_str in ("ADMIN", "SYSTEM"):
+        raise CivicSphereException(
+            code="PRIVILEGE_ESCALATION_BLOCKED",
+            message="Self-registration for privileged administrative roles is disabled in production.",
+            status_code=403
+        )
 
     user = UserModel(
         email=clean_email,
