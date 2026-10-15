@@ -63,3 +63,48 @@
   - `requirements.txt` (Cleaned)
 - **Code Fix:** Configured native Vercel Serverless Function deployment with `@vercel/python` runtime.
 - **Verification Result:** PASS (Zero-cost, zero-GPU deployment, 23 FastAPI endpoints verified in `api/index.py`).
+
+---
+
+### REM-006: Frontend Lint, Type Safety & React Compiler Remediation
+- **Confirmed Defect:** 147 ESLint problems (71 errors, 76 warnings) across 23 frontend files, including 32 `@typescript-eslint/no-explicit-any` errors, missing React hook dependencies, `set-state-in-effect` compiler flags, unescaped JSX quotes/apostrophes, and `window.location.href` relative destination navigation.
+- **Root Cause:** Incomplete TypeScript interface mapping, loose `any` declarations in the Universal API client, unhandled asynchronous cleanup in React effects, and unescaped HTML characters in JSX prose.
+- **Files Modified:**
+  - `apps/web/src/lib/types.ts` (Created canonical domain interfaces)
+  - `apps/web/src/lib/api-client.ts` (100% strongly typed methods and parameters)
+  - `apps/web/src/components/Header.tsx`
+  - `apps/web/src/app/about/page.tsx`
+  - `apps/web/src/app/admin/audit/page.tsx`
+  - `apps/web/src/app/admin/evaluation/page.tsx`
+  - `apps/web/src/app/admin/knowledge/page.tsx`
+  - `apps/web/src/app/admin/page.tsx`
+  - `apps/web/src/app/admin/security/page.tsx`
+  - `apps/web/src/app/admin/sources/page.tsx`
+  - `apps/web/src/app/agents/page.tsx`
+  - `apps/web/src/app/auth/login/page.tsx`
+  - `apps/web/src/app/auth/register/page.tsx`
+  - `apps/web/src/app/cases/page.tsx`
+  - `apps/web/src/app/dashboard/page.tsx`
+  - `apps/web/src/app/documents/page.tsx`
+  - `apps/web/src/app/government/page.tsx`
+  - `apps/web/src/app/knowledge/page.tsx`
+  - `apps/web/src/app/legal/page.tsx`
+  - `apps/web/src/app/notifications/page.tsx`
+  - `apps/web/src/app/privacy/page.tsx`
+  - `apps/web/src/app/profile/page.tsx`
+  - `apps/web/src/app/security/page.tsx`
+  - `apps/web/src/app/settings/page.tsx`
+  - `apps/web/src/app/sources/page.tsx`
+- **Code Fix:** 
+  1. Created canonical domain type definitions in `types.ts` covering `User`, `CaseItem`, `DocumentItem`, `LegalGuidance`, `GovScheme`, `KnowledgeSource`, `AgentToolCall`, etc.
+  2. Strongly typed all `request<T>` calls and parameters in `api-client.ts`.
+  3. Replaced `window.location.href` assignments with Next.js `useRouter().push()`.
+  4. Structured all React component data loading with asynchronous promise callback handlers and `active = false` cancellation.
+  5. Escaped all raw single and double quotes in JSX (`&apos;`, `&quot;`).
+  6. Removed all unused icon imports and completed intended UI features.
+- **Verification Results:**
+  - `npm run lint --workspace=civicsphere-web`: **0 errors, 0 warnings (100% clean)**
+  - `npm run build --workspace=civicsphere-web`: **PASS (Compiled in 2.6s, all 28 routes static optimized)**
+  - `npm audit --omit=dev`: **0 vulnerabilities**
+  - Pytest regression suite: **92 passed, 1 skipped, 0 failures**
+
