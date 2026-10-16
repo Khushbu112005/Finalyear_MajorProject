@@ -52,6 +52,8 @@ htmlcov/
 # Uploads & Local File Storage
 uploads/*
 !uploads/.gitkeep
+backend/uploads/*
+!backend/uploads/.gitkeep
 
 # Logs, OS & IDE Metadata
 *.log

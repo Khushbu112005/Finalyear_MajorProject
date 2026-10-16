@@ -2,6 +2,7 @@
 Structured Audit and Security Event Logging.
 Captures all knowledge operations, tool calls, ingestion events, and security violations.
 Guarantees: Zero PII, Zero raw sensitive document contents, Zero credentials in logs.
+Supports persistent database storage via SQLAlchemy AsyncSessionLocal.
 """
 
 import json
@@ -9,8 +10,10 @@ import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 import uuid
+import asyncio
 
 from packages.schemas.contracts import AuditEvent, SecurityEvent
+from backend.app.common.config import settings
 
 logger = logging.getLogger("civicsphere.audit")
 security_logger = logging.getLogger("civicsphere.security")
@@ -34,7 +37,6 @@ class AuditManager:
         details: Optional[Dict[str, Any]] = None,
         db_session = None
     ) -> AuditEvent:
-        # Sanitize details to guarantee no secrets or raw PII
         sanitized_details = cls._sanitize_payload(details or {})
         
         event = AuditEvent(
@@ -52,7 +54,6 @@ class AuditManager:
         cls._in_memory_events.append(event)
         logger.info(f"AUDIT_EVENT: {event.model_dump_json()}")
         
-        # Async persist to DB if session provided
         if db_session:
             try:
                 from backend.app.audit.models import AuditEventModel
@@ -69,6 +70,8 @@ class AuditManager:
                 db_session.add(db_event)
             except Exception as e:
                 logger.warning(f"Failed to persist audit event to DB: {e}")
+        elif settings.ENVIRONMENT != "test":
+            cls._schedule_persist_audit_event(event)
                 
         return event
 
@@ -83,7 +86,6 @@ class AuditManager:
         payload_sample: Optional[str] = None,
         db_session = None
     ) -> SecurityEvent:
-        # Mask any potential sensitive details in sample
         safe_sample = payload_sample[:120] + "..." if payload_sample and len(payload_sample) > 120 else payload_sample
         
         event = SecurityEvent(
@@ -115,8 +117,67 @@ class AuditManager:
                 db_session.add(db_event)
             except Exception as e:
                 security_logger.warning(f"Failed to persist security event to DB: {e}")
+        elif settings.ENVIRONMENT != "test":
+            cls._schedule_persist_security_event(event)
                 
         return event
+
+    @classmethod
+    def _schedule_persist_audit_event(cls, event: AuditEvent) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(cls._persist_audit_to_db(event))
+        except RuntimeError:
+            pass
+
+    @classmethod
+    async def _persist_audit_to_db(cls, event: AuditEvent) -> None:
+        try:
+            from backend.app.common.database import AsyncSessionLocal
+            from backend.app.audit.models import AuditEventModel
+            async with AsyncSessionLocal() as session:
+                db_event = AuditEventModel(
+                    id=event.event_id,
+                    event_type=event.event_type,
+                    actor_id=event.actor_id,
+                    role=event.role,
+                    action=event.action,
+                    resource_type=event.resource_type,
+                    resource_id=event.resource_id,
+                    details=event.details
+                )
+                session.add(db_event)
+                await session.commit()
+        except Exception as e:
+            logger.warning(f"Background audit event persist notice: {e}")
+
+    @classmethod
+    def _schedule_persist_security_event(cls, event: SecurityEvent) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(cls._persist_security_to_db(event))
+        except RuntimeError:
+            pass
+
+    @classmethod
+    async def _persist_security_to_db(cls, event: SecurityEvent) -> None:
+        try:
+            from backend.app.common.database import AsyncSessionLocal
+            from backend.app.audit.models import SecurityEventModel
+            async with AsyncSessionLocal() as session:
+                db_event = SecurityEventModel(
+                    id=event.event_id,
+                    threat_type=event.threat_type,
+                    severity=event.severity,
+                    actor_id=event.actor_id,
+                    endpoint=event.endpoint,
+                    payload_sample=event.payload_sample,
+                    action_taken=event.action_taken
+                )
+                session.add(db_event)
+                await session.commit()
+        except Exception as e:
+            logger.warning(f"Background security event persist notice: {e}")
 
     @classmethod
     def get_recent_audit_events(cls, limit: int = 50) -> List[AuditEvent]:
@@ -145,7 +206,6 @@ class AuditManager:
 
     @staticmethod
     def _sanitize_payload(data: Dict[str, Any]) -> Dict[str, Any]:
-        """Redacts sensitive keys and masks PII in audit log payload values."""
         from backend.app.knowledge.security.sanitization import PIISanitizer
         sensitive_keys = {"password", "secret", "token", "jwt", "authorization", "api_key"}
         clean = {}

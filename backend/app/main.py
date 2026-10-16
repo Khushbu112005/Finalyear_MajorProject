@@ -44,8 +44,18 @@ async def lifespan(app: FastAPI):
         await init_models()
     except Exception as e:
         logger.warning(f"Database table initialization notice: {e}")
-    # Initialize seed data if available
+    # Hydrate persistent knowledge from database (survives cold starts and serverless container lifecycles)
     from backend.app.knowledge.sources.registry import source_registry
+    from backend.app.knowledge.graph.repository import graph_repository
+    from backend.app.knowledge.ingestion.vector_writer import vector_store
+    try:
+        await source_registry.hydrate_from_db()
+        await graph_repository.hydrate_from_db()
+        await vector_store.hydrate_from_db()
+    except Exception as e:
+        logger.warning(f"Notice: Knowledge persistence hydration: {e}")
+
+    # Initialize seed data if database is empty
     if len(source_registry.list_sources()) == 0:
         try:
             from data.seed.seed_data import seed_knowledge_base
@@ -53,7 +63,7 @@ async def lifespan(app: FastAPI):
             await seed_knowledge_base()
         except Exception as e:
             logger.warning(f"Knowledge base auto-seeding notice: {e}")
-    logger.info(f"Knowledge Engine ready. Currently holding {len(source_registry.list_sources())} registered sources.")
+    logger.info(f"Knowledge Engine ready. Currently holding {len(source_registry.list_sources())} registered sources, {len(graph_repository._nodes)} graph nodes, {len(vector_store._vectors)} vector records.")
     yield
     logger.info("Shutting down CivicSphere Unified Backend...")
 
@@ -136,7 +146,8 @@ async def readiness_check():
     return {
         "ready": True,
         "graph_nodes": len(graph_repository._nodes),
-        "vector_records": len(vector_store._vectors)
+        "vector_records": len(vector_store._vectors),
+        "persistence": "postgresql_pgvector" if "postgresql" in settings.DATABASE_URL else "sqlite_memory"
     }
 
 

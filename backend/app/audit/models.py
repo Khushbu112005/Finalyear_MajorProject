@@ -14,7 +14,7 @@ from backend.app.common.database import Base
 class AuditEventModel(Base):
     __tablename__ = "audit_events"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column("event_id", String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
     event_type = Column(String(100), nullable=False, index=True)
     actor_id = Column(String(100), nullable=False, index=True)
     role = Column(String(50), nullable=False)
@@ -41,7 +41,7 @@ class AuditEventModel(Base):
 class SecurityEventModel(Base):
     __tablename__ = "security_events"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column("event_id", String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
     threat_type = Column(String(100), nullable=False, index=True)  # PROMPT_INJECTION, SSRF, IDOR, CYCLIC_CYPHER, UNVERIFIED_CITATION
     severity = Column(String(50), nullable=False, index=True)  # LOW, MEDIUM, HIGH, CRITICAL
     actor_id = Column(String(100), nullable=True, index=True)

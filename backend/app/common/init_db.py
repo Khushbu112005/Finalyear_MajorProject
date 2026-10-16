@@ -12,6 +12,13 @@ from backend.app.cases.models import CaseModel
 from backend.app.documents.models import DocumentModel
 from backend.app.government.models import GovernmentServiceModel
 from backend.app.audit.models import AuditEventModel, SecurityEventModel
+from backend.app.knowledge.models import (
+    KnowledgeSourceModel,
+    KnowledgeChunkModel,
+    KnowledgeEmbeddingModel,
+    KnowledgeGraphNodeModel,
+    KnowledgeGraphEdgeModel
+)
 
 logger = logging.getLogger("civicsphere.init_db")
 

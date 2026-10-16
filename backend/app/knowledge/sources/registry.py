@@ -1,15 +1,22 @@
 """
 First-Class Source Registry for CivicSphere.
 Tracks all legal, civic, and governmental sources with their trust level, verification status, and provenance.
+Supports durable PostgreSQL persistence across cold starts and container recycles.
 """
 
 from typing import Dict, List, Optional
 import hashlib
 from datetime import datetime, timezone
+import asyncio
+import json
+import logging
 
 from packages.schemas.contracts import VerificationStatus, SourceTrustLevel, IngestionStatus
 from backend.app.knowledge.domain.source import SourceRecord, SourceVersionRecord, ChunkRecord
 from backend.app.common.errors import NotFoundException, IngestionValidationException
+from backend.app.common.config import settings
+
+logger = logging.getLogger("civicsphere.source_registry")
 
 
 class SourceRegistry:
@@ -131,7 +138,6 @@ class SourceRegistry:
     def list_active_sources(self) -> List[SourceRecord]:
         return [s for s in self._sources.values() if s.verification_status == VerificationStatus.ACTIVE]
 
-
     def get_versions(self, source_id: str) -> List[SourceVersionRecord]:
         if source_id not in self._sources:
             raise NotFoundException(f"Source with id '{source_id}' not found.")
@@ -152,6 +158,9 @@ class SourceRegistry:
                 if c.chunk_id == chunk_id:
                     return c
         return None
+
+    def get_chunk_by_id(self, chunk_id: str) -> Optional[ChunkRecord]:
+        return self.get_chunk(chunk_id)
 
     def update_status(
         self,
@@ -184,5 +193,160 @@ class SourceRegistry:
         self._verified_urls.clear()
 
 
+class PersistentSourceRegistry(SourceRegistry):
+    """
+    Durable Source Registry syncing source records and statuses to PostgreSQL table `knowledge_sources`.
+    """
+
+    def register_source(self, *args, **kwargs) -> SourceRecord:
+        src = super().register_source(*args, **kwargs)
+        if settings.ENVIRONMENT != "test":
+            self._schedule_persist_source(src)
+        return src
+
+    def update_status(self, *args, **kwargs) -> SourceRecord:
+        src = super().update_status(*args, **kwargs)
+        if settings.ENVIRONMENT != "test":
+            self._schedule_persist_source(src)
+        return src
+
+    def _schedule_persist_source(self, source_rec: SourceRecord) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._persist_source_to_db(source_rec))
+        except RuntimeError:
+            pass
+
+    async def _persist_source_to_db(self, src: SourceRecord) -> None:
+        try:
+            from backend.app.common.database import engine
+            from sqlalchemy import text
+            meta_json = json.dumps(src.metadata or {})
+            tlevel = src.trust_level.name if hasattr(src.trust_level, 'name') else str(src.trust_level)
+            vstat = src.verification_status.value if hasattr(src.verification_status, 'value') else src.verification_status
+            istat = src.ingestion_status.value if hasattr(src.ingestion_status, 'value') else src.ingestion_status
+
+            async with engine.begin() as conn:
+                await conn.execute(text("""
+                    INSERT INTO knowledge_sources (
+                        source_id, title, publisher, official_url, jurisdiction, source_type,
+                        trust_level, current_version, content_hash, verification_status, ingestion_status,
+                        publication_date, effective_date, expiry_date, parser_version, embedding_version,
+                        retrieved_at, last_verified_at, metadata
+                    ) VALUES (
+                        :sid, :title, :pub, :url, :jur, :stype,
+                        :tlevel, :cver, :chash, :vstat, :istat,
+                        :pdate, :edate, :xdate, :pver, :ever,
+                        :rat, :lvat, CAST(:meta AS jsonb)
+                    ) ON CONFLICT (source_id) DO UPDATE SET
+                        current_version = EXCLUDED.current_version,
+                        content_hash = EXCLUDED.content_hash,
+                        verification_status = EXCLUDED.verification_status,
+                        ingestion_status = EXCLUDED.ingestion_status,
+                        last_verified_at = EXCLUDED.last_verified_at,
+                        metadata = EXCLUDED.metadata,
+                        updated_at = NOW();
+                """), {
+                    "sid": src.source_id,
+                    "title": src.title,
+                    "pub": src.publisher,
+                    "url": src.official_url,
+                    "jur": src.jurisdiction,
+                    "stype": src.source_type,
+                    "tlevel": tlevel,
+                    "cver": src.current_version,
+                    "chash": src.content_hash,
+                    "vstat": vstat,
+                    "istat": istat,
+                    "pdate": src.publication_date,
+                    "edate": src.effective_date,
+                    "xdate": src.expiry_date,
+                    "pver": src.parser_version,
+                    "ever": src.embedding_version,
+                    "rat": src.retrieved_at,
+                    "lvat": src.last_verified_at,
+                    "meta": meta_json
+                })
+        except Exception as e:
+            logger.warning(f"Error persisting source {src.source_id} to DB: {e}")
+
+    async def hydrate_from_db(self) -> int:
+        """Loads registered sources from PostgreSQL database into memory."""
+        if settings.ENVIRONMENT == "test":
+            return len(self._sources)
+
+        try:
+            from backend.app.common.database import engine
+            from sqlalchemy import text
+            
+            async with engine.begin() as conn:
+                res = await conn.execute(text("""
+                    SELECT source_id, title, publisher, official_url, jurisdiction, source_type,
+                           trust_level, current_version, content_hash, verification_status, ingestion_status,
+                           publication_date, effective_date, expiry_date, parser_version, embedding_version,
+                           retrieved_at, last_verified_at, metadata
+                    FROM knowledge_sources;
+                """))
+                rows = res.fetchall()
+                for r in rows:
+                    sid = r[0]
+                    title = r[1]
+                    pub = r[2]
+                    url = r[3]
+                    jur = r[4]
+                    stype = r[5]
+                    tlevel = r[6]
+                    cver = r[7]
+                    chash = r[8]
+                    vstat = r[9]
+                    istat = r[10]
+                    pdate = r[11]
+                    edate = r[12]
+                    xdate = r[13]
+                    pver = r[14]
+                    ever = r[15]
+                    rat = r[16]
+                    lvat = r[17]
+                    meta = r[18] if isinstance(r[18], dict) else json.loads(r[18] or "{}")
+
+                    if isinstance(tlevel, int) or (isinstance(tlevel, str) and tlevel.isdigit()):
+                        trust_enum = SourceTrustLevel(int(tlevel))
+                    elif tlevel in SourceTrustLevel.__members__:
+                        trust_enum = SourceTrustLevel[tlevel]
+                    else:
+                        trust_enum = SourceTrustLevel.TRUSTED_SECONDARY_SOURCE
+
+                    source_rec = SourceRecord(
+                        source_id=sid,
+                        title=title,
+                        publisher=pub,
+                        official_url=url,
+                        jurisdiction=jur or "IN",
+                        source_type=stype,
+                        trust_level=trust_enum,
+                        current_version=cver or 1,
+                        content_hash=chash,
+                        verification_status=VerificationStatus(vstat) if vstat in VerificationStatus._value2member_map_ else VerificationStatus.UNVERIFIED,
+                        ingestion_status=IngestionStatus(istat) if istat in IngestionStatus._value2member_map_ else IngestionStatus.COMPLETED,
+                        publication_date=pdate,
+                        effective_date=edate,
+                        expiry_date=xdate,
+                        parser_version=pver or "1.0.0",
+                        embedding_version=ever or "1.0.0",
+                        retrieved_at=rat or datetime.now(timezone.utc).isoformat(),
+                        last_verified_at=lvat,
+                        metadata=meta
+                    )
+                    self._sources[sid] = source_rec
+                    if source_rec.verification_status == VerificationStatus.ACTIVE:
+                        self._verified_urls.add(url)
+
+            logger.info(f"Hydrated source registry: {len(self._sources)} sources from database.")
+            return len(self._sources)
+        except Exception as e:
+            logger.warning(f"Notice: Source registry hydration from DB: {e}")
+            return len(self._sources)
+
+
 # Global Singleton Registry Instance
-source_registry = SourceRegistry()
+source_registry = PersistentSourceRegistry()

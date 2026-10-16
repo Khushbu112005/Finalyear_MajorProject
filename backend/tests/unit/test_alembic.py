@@ -17,6 +17,7 @@ def test_alembic_configuration_and_revisions():
     assert os.path.exists(ini_path), "alembic.ini must exist in project root"
     
     config = Config(ini_path)
+    config.set_main_option("script_location", os.path.join(root_dir, "backend", "migrations"))
     script = ScriptDirectory.from_config(config)
     
     heads = script.get_heads()

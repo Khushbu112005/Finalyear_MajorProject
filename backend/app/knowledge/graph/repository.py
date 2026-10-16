@@ -1,11 +1,14 @@
 """
-Neo4j Graph Repository for CivicSphere.
+Neo4j & Persistent Relational Graph Repository for CivicSphere.
 Enforces parameterized Cypher queries, bounded neighborhood exploration, provenance tracking, and strict authorization.
+Supports durable PostgreSQL relational graph persistence and optional remote Neo4j Aura clustering.
 """
 
 from typing import List, Dict, Any, Optional, Set, Tuple
 from datetime import datetime, timezone
 import logging
+import asyncio
+import json
 
 from backend.app.knowledge.domain.entities import EntityDomainModel, EntityType
 from backend.app.knowledge.domain.relationships import RelationshipDomainModel, RelationType
@@ -177,5 +180,213 @@ class GraphRepository:
         self._adjacency_in.clear()
 
 
+class PersistentGraphRepository(GraphRepository):
+    """
+    Durable Graph Repository persisting nodes and edges to PostgreSQL relational graph tables
+    (`knowledge_graph_nodes` and `knowledge_graph_edges`) across serverless container recycles.
+    """
+
+    def insert_entity(self, entity: EntityDomainModel) -> EntityDomainModel:
+        res = super().insert_entity(entity)
+        if settings.ENVIRONMENT != "test":
+            self._schedule_persist_entity(entity)
+        return res
+
+    def insert_relationship(self, relationship: RelationshipDomainModel) -> RelationshipDomainModel:
+        res = super().insert_relationship(relationship)
+        if settings.ENVIRONMENT != "test":
+            self._schedule_persist_relationship(relationship)
+        return res
+
+    def _schedule_persist_entity(self, entity: EntityDomainModel) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._persist_entity_to_db(entity))
+        except RuntimeError:
+            pass
+
+    async def _persist_entity_to_db(self, entity: EntityDomainModel) -> None:
+        try:
+            from backend.app.common.database import engine
+            from sqlalchemy import text
+            aliases_json = json.dumps(entity.aliases or [])
+            attrs_json = json.dumps(entity.attributes or {})
+            sids_json = json.dumps(entity.source_ids or [])
+            svers_json = json.dumps(entity.source_versions or [])
+
+            async with engine.begin() as conn:
+                await conn.execute(text("""
+                    INSERT INTO knowledge_graph_nodes (
+                        entity_id, name, entity_type, canonical_id, aliases, jurisdiction,
+                        state, attributes, source_ids, source_versions, confidence
+                    ) VALUES (
+                        :eid, :name, :etype, :cid, CAST(:aliases AS jsonb), :jur,
+                        :state, CAST(:attrs AS jsonb), CAST(:sids AS jsonb), CAST(:svers AS jsonb), :conf
+                    ) ON CONFLICT (entity_id) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        aliases = EXCLUDED.aliases,
+                        attributes = EXCLUDED.attributes,
+                        source_ids = EXCLUDED.source_ids,
+                        source_versions = EXCLUDED.source_versions,
+                        confidence = EXCLUDED.confidence,
+                        updated_at = NOW();
+                """), {
+                    "eid": entity.entity_id,
+                    "name": entity.name,
+                    "etype": entity.entity_type.value if hasattr(entity.entity_type, 'value') else entity.entity_type,
+                    "cid": entity.canonical_id,
+                    "aliases": aliases_json,
+                    "jur": entity.jurisdiction,
+                    "state": entity.state,
+                    "attrs": attrs_json,
+                    "sids": sids_json,
+                    "svers": svers_json,
+                    "conf": entity.confidence
+                })
+        except Exception as e:
+            logger.warning(f"Error persisting graph node {entity.entity_id} to DB: {e}")
+
+    def _schedule_persist_relationship(self, relationship: RelationshipDomainModel) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._persist_relationship_to_db(relationship))
+        except RuntimeError:
+            pass
+
+    async def _persist_relationship_to_db(self, rel: RelationshipDomainModel) -> None:
+        try:
+            from backend.app.common.database import engine
+            from sqlalchemy import text
+            attrs_json = json.dumps(rel.attributes or {})
+
+            async with engine.begin() as conn:
+                source_node = self._nodes.get(rel.source_entity_id)
+                target_node = self._nodes.get(rel.target_entity_id)
+                s_name = source_node.name if source_node else "Entity"
+                s_type = (source_node.entity_type.value if hasattr(source_node.entity_type, 'value') else source_node.entity_type) if source_node else "SECTION"
+                t_name = target_node.name if target_node else "Entity"
+                t_type = (target_node.entity_type.value if hasattr(target_node.entity_type, 'value') else target_node.entity_type) if target_node else "AUTHORITY"
+
+                await conn.execute(text("""
+                    INSERT INTO knowledge_graph_nodes (entity_id, name, entity_type)
+                    VALUES (:eid, :name, :etype)
+                    ON CONFLICT (entity_id) DO NOTHING;
+                """), {"eid": rel.source_entity_id, "name": s_name, "etype": s_type})
+
+                await conn.execute(text("""
+                    INSERT INTO knowledge_graph_nodes (entity_id, name, entity_type)
+                    VALUES (:eid, :name, :etype)
+                    ON CONFLICT (entity_id) DO NOTHING;
+                """), {"eid": rel.target_entity_id, "name": t_name, "etype": t_type})
+
+                await conn.execute(text("""
+                    INSERT INTO knowledge_graph_edges (
+                        relationship_id, source_entity_id, target_entity_id, relation_type,
+                        attributes, source_id, source_version, source_chunk_id, confidence
+                    ) VALUES (
+                        :rid, :sid, :tid, :rtype,
+                        CAST(:attrs AS jsonb), :src_id, :src_ver, :chk_id, :conf
+                    ) ON CONFLICT (relationship_id) DO UPDATE SET
+                        relation_type = EXCLUDED.relation_type,
+                        attributes = EXCLUDED.attributes,
+                        confidence = EXCLUDED.confidence,
+                        updated_at = NOW();
+                """), {
+                    "rid": rel.relationship_id,
+                    "sid": rel.source_entity_id,
+                    "tid": rel.target_entity_id,
+                    "rtype": rel.relation_type.value if hasattr(rel.relation_type, 'value') else rel.relation_type,
+                    "attrs": attrs_json,
+                    "src_id": rel.source_id,
+                    "src_ver": rel.source_version,
+                    "chk_id": rel.source_chunk_id,
+                    "conf": rel.confidence
+                })
+        except Exception as e:
+            logger.warning(f"Error persisting graph relationship {rel.relationship_id} to DB: {e}")
+
+    async def hydrate_from_db(self) -> Tuple[int, int]:
+        """Loads all nodes and relationships from persistent PostgreSQL database."""
+        if settings.ENVIRONMENT == "test":
+            return len(self._nodes), len(self._relationships)
+
+        try:
+            from backend.app.common.database import engine
+            from sqlalchemy import text
+            
+            async with engine.begin() as conn:
+                # 1. Hydrate nodes
+                node_res = await conn.execute(text("""
+                    SELECT entity_id, name, entity_type, canonical_id, aliases,
+                           jurisdiction, state, attributes, source_ids, source_versions, confidence
+                    FROM knowledge_graph_nodes;
+                """))
+                node_rows = node_res.fetchall()
+                for r in node_rows:
+                    eid = r[0]
+                    name = r[1]
+                    etype = r[2]
+                    cid = r[3]
+                    aliases = r[4] if isinstance(r[4], list) else json.loads(r[4] or "[]")
+                    jur = r[5]
+                    st = r[6]
+                    attrs = r[7] if isinstance(r[7], dict) else json.loads(r[7] or "{}")
+                    sids = r[8] if isinstance(r[8], list) else json.loads(r[8] or "[]")
+                    svers = r[9] if isinstance(r[9], list) else json.loads(r[9] or "[]")
+                    conf = r[10]
+
+                    entity = EntityDomainModel(
+                        entity_id=eid,
+                        name=name,
+                        entity_type=EntityType(etype) if etype in EntityType._value2member_map_ else EntityType.SECTION,
+                        canonical_id=cid,
+                        aliases=aliases,
+                        jurisdiction=jur or "IN",
+                        state=st,
+                        attributes=attrs,
+                        source_ids=sids,
+                        source_versions=svers,
+                        confidence=conf or 1.0
+                    )
+                    super().insert_entity(entity)
+
+                # 2. Hydrate edges
+                edge_res = await conn.execute(text("""
+                    SELECT relationship_id, source_entity_id, target_entity_id, relation_type,
+                           attributes, source_id, source_version, source_chunk_id, confidence
+                    FROM knowledge_graph_edges;
+                """))
+                edge_rows = edge_res.fetchall()
+                for r in edge_rows:
+                    rid = r[0]
+                    sid = r[1]
+                    tid = r[2]
+                    rtype = r[3]
+                    attrs = r[4] if isinstance(r[4], dict) else json.loads(r[4] or "{}")
+                    src_id = r[5]
+                    src_ver = r[6]
+                    chk_id = r[7]
+                    conf = r[8]
+
+                    rel = RelationshipDomainModel(
+                        relationship_id=rid,
+                        source_entity_id=sid,
+                        target_entity_id=tid,
+                        relation_type=RelationType(rtype) if rtype in RelationType._value2member_map_ else RelationType.ADMINISTERED_BY,
+                        attributes=attrs,
+                        source_id=src_id,
+                        source_version=src_ver or 1,
+                        source_chunk_id=chk_id,
+                        confidence=conf or 1.0
+                    )
+                    super().insert_relationship(rel)
+
+            logger.info(f"Hydrated graph repository: {len(self._nodes)} nodes, {len(self._relationships)} edges from database.")
+            return len(self._nodes), len(self._relationships)
+        except Exception as e:
+            logger.warning(f"Notice: Graph repository hydration from DB: {e}")
+            return len(self._nodes), len(self._relationships)
+
+
 # Global Singleton Graph Instance
-graph_repository = GraphRepository()
+graph_repository = PersistentGraphRepository()
