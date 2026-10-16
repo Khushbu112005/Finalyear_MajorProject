@@ -67,3 +67,5 @@ task.md
 walkthrough.md
 implementation_plan.md
 scratch/
+.vercel
+.env*

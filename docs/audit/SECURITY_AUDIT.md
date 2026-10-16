@@ -35,3 +35,20 @@
 4. **Session Protection:**
    - JWT tokens stored in `httpOnly` secure cookies with `SameSite=none` in production to prevent client-side XSS token theft.
    - State-changing endpoints protected with double-submit CSRF tokens.
+
+---
+
+## 3. Dependency Security Audit & Vulnerability Assessment
+
+### Production Dependencies (`npm audit --omit=dev`)
+- **Status:** **PASS** (Exit Code: 0)
+- **Vulnerabilities Found:** **0 vulnerabilities**
+- **Analysis:** All runtime production packages (`react`, `react-dom`, `next`, `clsx`, `lucide-react`, `tailwind-merge`) are completely free of known CVEs and high-severity security vulnerabilities. The client bundle contains zero known vulnerable packages.
+
+### Complete Dependencies (`npm audit`, including devDependencies)
+- **Status:** Exit Code: 1
+- **Vulnerabilities Found:** 9 vulnerabilities (2 moderate, 7 high)
+- **Vulnerability Breakdown:**
+  - `braces` (High) via `@next/eslint-plugin-next` -> `fast-glob` -> `micromatch` -> `braces` and `tailwindcss` -> `chokidar` -> `braces`
+  - `postcss-selector-parser` (Moderate) via `tailwindcss` -> `postcss-nested`
+- **Mitigating Assessment:** All 9 reported vulnerabilities reside strictly in build-time / development tools (`eslint-config-next`, `tailwindcss` CLI parser, `chokidar` file watcher). None of these packages execute in production or in client browsers; Turbopack builds static assets and discards dev tooling. Automatic resolution via `npm audit fix --force` would require breaking migration to `tailwindcss@4`, which is currently held as a non-breaking roadmap item.

@@ -3,7 +3,9 @@ Configuration management for CivicSphere Module C.
 Loads settings from environment variables with strong typing and security defaults.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Union
+import json
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,16 +23,36 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api/v1"
 
     # Security & Access
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     JWT_SECRET_KEY: str  # REQUIRED — no default. Must be set via environment.
     JWT_ALGORITHM: str = "HS256"
     MAX_SOURCE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5MB max payload
 
     # Ingestion & SSRF Protections
     SSRF_PROTECTION_ENABLED: bool = True
-    ALLOWED_INGESTION_SCHEMES: List[str] = ["http", "https"]
+    ALLOWED_INGESTION_SCHEMES: Union[List[str], str] = ["http", "https"]
     FETCH_TIMEOUT_SECONDS: float = 10.0
     MAX_REDIRECTS: int = 3
+
+    @field_validator("ALLOWED_ORIGINS", "ALLOWED_INGESTION_SCHEMES", mode="after")
+    @classmethod
+    def parse_string_or_list(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    return json.loads(v)
+                except Exception:
+                    inner = v[1:-1].strip()
+                    if not inner:
+                        return []
+                    return [item.strip(" '\"") for item in inner.split(",") if item.strip(" '\"")]
+            elif "," in v:
+                return [item.strip() for item in v.split(",") if item.strip()]
+            elif v:
+                return [v]
+            return []
+        return v
 
     # Database & Graph
     DATABASE_URL: str = "sqlite+aiosqlite:///./civicsphere_knowledge.db"

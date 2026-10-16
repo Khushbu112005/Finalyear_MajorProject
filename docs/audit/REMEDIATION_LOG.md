@@ -108,3 +108,32 @@
   - `npm audit --omit=dev`: **0 vulnerabilities**
   - Pytest regression suite: **92 passed, 1 skipped, 0 failures**
 
+---
+
+### REM-007: React 19 Upgrade, Serverless SQLAlchemy Concurrency & Vercel Preview Deployments
+
+- **Defect Description:**
+  1. Next.js 16.4.2 issued a deprecation warning regarding React 18 support scheduled for removal in Next.js 17.
+  2. The serverless Python runtime failed with `ModuleNotFoundError: No module named 'greenlet'` during `sqlalchemy.ext.asyncio` initialization.
+  3. Strict Pydantic settings parser crashed when `ALLOWED_ORIGINS` was provided as a string, wildcard, or unescaped CLI string from cloud environments.
+- **Affected Components:**
+  - `apps/web/package.json`
+  - `package-lock.json`
+  - `requirements.txt`
+  - `pyproject.toml`
+  - `backend/app/common/config.py`
+  - Vercel Deployment Configuration
+- **Code Fix:**
+  1. Controlled upgrade to React `19.3.1`, React DOM `19.3.1`, `@types/react` `19.3.0`, and `@types/react-dom` `19.3.0`.
+  2. Added `greenlet>=3.0.0` and `sqlalchemy[asyncio]>=2.0.0` to `requirements.txt` and `pyproject.toml`.
+  3. Added `@field_validator("ALLOWED_ORIGINS", "ALLOWED_INGESTION_SCHEMES", mode="after")` and typed `ALLOWED_ORIGINS: Union[List[str], str]` in `config.py` to transparently parse JSON arrays, comma-separated lists, and single strings.
+  4. Deployed backend preview to Vercel (`dpl_3WfSevjNcXrDxUCjtmvvZXmizSid`) and frontend (`dpl_2W4rVEF9yU4hP7Y9jr3zR9t5ashq`).
+- **Verification Results:**
+  - `npm run lint --workspace=civicsphere-web`: **0 errors, 0 warnings (Exit Code: 0)**
+  - `npm run build --workspace=civicsphere-web`: **PASS (Compiled in 7.4s, 28 static routes, 0 deprecation warnings, Exit Code: 0)**
+  - `npm audit --omit=dev`: **0 vulnerabilities (Exit Code: 0)**
+  - Complete `npm audit`: **9 vulnerabilities** (all isolated to build-time devDependencies `tailwindcss` 3.4.x / `eslint-config-next`)
+  - Pytest regression suite: **92 passed, 1 skipped, 0 failures (Exit Code: 0)**
+  - Live Vercel Backend Health Check (`/api/v1/health`): **HTTP 200 OK** (`{"status":"HEALTHY","service":"civicsphere_unified_backend"}`)
+  - Live Vercel Backend Legal Query (`POST /api/v1/legal/query`): **HTTP 200 OK** (Structured statutory response with citation verification)
+
