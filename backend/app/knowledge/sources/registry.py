@@ -157,6 +157,12 @@ class SourceRegistry:
             for c in chunk_list:
                 if c.chunk_id == chunk_id:
                     return c
+        try:
+            from backend.app.knowledge.ingestion.vector_writer import vector_store
+            if chunk_id in vector_store._chunks:
+                return vector_store._chunks[chunk_id]
+        except Exception:
+            pass
         return None
 
     def get_chunk_by_id(self, chunk_id: str) -> Optional[ChunkRecord]:
@@ -341,7 +347,62 @@ class PersistentSourceRegistry(SourceRegistry):
                     if source_rec.verification_status == VerificationStatus.ACTIVE:
                         self._verified_urls.add(url)
 
-            logger.info(f"Hydrated source registry: {len(self._sources)} sources from database.")
+                # Also hydrate all chunks for these sources
+                chunk_res = await conn.execute(text("""
+                    SELECT chunk_id, source_id, source_version, chunk_index, text,
+                           content_hash, act_title, chapter, section_number, section_title,
+                           subsection_number, page_number, jurisdiction, source_type,
+                           verification_status, effective_date, metadata
+                    FROM knowledge_chunks;
+                """))
+                chunk_rows = chunk_res.fetchall()
+                for cr in chunk_rows:
+                    cid = cr[0]
+                    sid = cr[1]
+                    sver = cr[2]
+                    cidx = cr[3]
+                    txt = cr[4]
+                    chash = cr[5]
+                    atitle = cr[6]
+                    chap = cr[7]
+                    secnum = cr[8]
+                    sectitle = cr[9]
+                    subsec = cr[10]
+                    pg = cr[11]
+                    jur = cr[12]
+                    stype = cr[13]
+                    vstat = cr[14]
+                    effdate = cr[15]
+                    meta = cr[16] if isinstance(cr[16], dict) else json.loads(cr[16] or "{}")
+
+                    vstatus_enum = VerificationStatus(vstat) if vstat in VerificationStatus._value2member_map_ else VerificationStatus.ACTIVE
+
+                    chunk = ChunkRecord(
+                        chunk_id=cid,
+                        source_id=sid,
+                        source_version=sver or 1,
+                        chunk_index=cidx or 0,
+                        text=txt,
+                        content_hash=chash,
+                        act_title=atitle,
+                        chapter=chap,
+                        section_number=secnum,
+                        section_title=sectitle,
+                        subsection_number=subsec,
+                        page_number=pg,
+                        jurisdiction=jur or "IN",
+                        source_type=stype or "ACT",
+                        verification_status=vstatus_enum,
+                        effective_date=effdate,
+                        metadata=meta
+                    )
+                    if sid not in self._chunks:
+                        self._chunks[sid] = []
+                    if not any(existing.chunk_id == cid for existing in self._chunks[sid]):
+                        self._chunks[sid].append(chunk)
+
+            total_chunks = sum(len(c_list) for c_list in self._chunks.values())
+            logger.info(f"Hydrated source registry: {len(self._sources)} sources and {total_chunks} chunks from database.")
             return len(self._sources)
         except Exception as e:
             logger.warning(f"Notice: Source registry hydration from DB: {e}")

@@ -258,7 +258,7 @@ class PersistentVectorStore(InMemoryVectorStore):
                            c.content_hash, c.act_title, c.chapter, c.section_number, c.section_title,
                            c.subsection_number, c.page_number, c.jurisdiction, c.source_type,
                            c.verification_status, c.effective_date, c.metadata,
-                           e.embedding::text AS vec_str
+                           CAST(e.embedding AS text) AS vec_str
                     FROM knowledge_chunks c
                     JOIN knowledge_embeddings e ON c.chunk_id = e.chunk_id;
                 """))
