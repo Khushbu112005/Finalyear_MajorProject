@@ -35,6 +35,12 @@
 4. **Session Protection:**
    - JWT tokens stored in `httpOnly` secure cookies with `SameSite=none` in production to prevent client-side XSS token theft.
    - State-changing endpoints protected with double-submit CSRF tokens.
+5. **CORS Hardening & Origin Isolation:**
+   - Production CORS origin allowlist explicitly locked to `https://civicsphere-web.vercel.app`, authorized Vercel preview URLs, and `http://localhost:3000`.
+   - Wildcard CORS (`*`) is strictly rejected via `model_post_init` in `Settings` when `ENVIRONMENT == "production"`.
+6. **Secret Rotation on Cloud Platform:**
+   - Exposed or shared JWT and CSRF secret keys were completely rotated with fresh cryptographically generated 256-bit entropy (`secrets.token_hex(32)`).
+   - Injected into Vercel Project Environment Variables via non-interactive Vercel CLI with sensitive flag enabled (hidden from dashboards and logs). Zero secrets exposed in git or commit logs.
 
 ---
 

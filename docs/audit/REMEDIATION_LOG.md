@@ -137,3 +137,36 @@
   - Live Vercel Backend Health Check (`/api/v1/health`): **HTTP 200 OK** (`{"status":"HEALTHY","service":"civicsphere_unified_backend"}`)
   - Live Vercel Backend Legal Query (`POST /api/v1/legal/query`): **HTTP 200 OK** (Structured statutory response with citation verification)
 
+---
+
+### REM-008: P0 Production Blocker Remediation, Knowledge Seeding & Live Verification
+
+- **Defect Description:**
+  1. **/api/v1/health/ready Reported Zero Records:** The knowledge graph and vector store started empty (0 graph nodes, 0 vector chunks) on cloud deployments because source ingestion previously required manual script invocation.
+  2. **CORS & Environment Settings Parsing Failure:** `backend/app/common/config.py` typed `ALLOWED_ORIGINS` as `Union[List[str], str]`, causing PydanticSettings `EnvSettingsSource` to attempt strict JSON parsing on non-JSON environment strings, failing serverless function startup with `json.decoder.JSONDecodeError`. Wildcard CORS was not forbidden in production mode.
+  3. **Missing Vercel Project Environment Variables:** Both Vercel projects (`civicsphere-backend` and `civicsphere-web`) had zero persistent environment variables configured in project settings, leading to invocation failures on unflagged requests.
+  4. **External Database Dormancy Blocker:** Connection to Supabase PostgreSQL pooler (`aws-0-ap-southeast-2.pooler.supabase.com:5432`) failed with `(ENOTFOUND) tenant/user postgres.wfzapvgaxmzddrgolfok not found` due to Supabase free-tier project dormancy after 7 days of inactivity.
+- **Affected Components:**
+  - `backend/app/main.py`
+  - `backend/app/common/config.py`
+  - Vercel Project Settings (`civicsphere-backend` & `civicsphere-web`)
+  - `docs/audit/` documentation suite
+- **Code Fix & Remediation:**
+  1. **Knowledge Auto-Seeder:** Updated `backend/app/main.py` lifespan context manager to auto-seed core statutory acts (Right to Information Act 2005, Digital Personal Data Protection Act 2023, Consumer Protection Act 2019) via `seed_knowledge_base()` whenever `source_registry.list_sources()` is empty.
+  2. **CORS Hardening & Config Resilience:** Updated `backend/app/common/config.py` to type `ALLOWED_ORIGINS` and `ALLOWED_INGESTION_SCHEMES` as `Any` with robust post-validation parsing, preventing `EnvSettingsSource` crashes while enforcing strict domain white-listing (`https://civicsphere-web.vercel.app`, preview domains, `http://localhost:3000`). Added strict validation in `model_post_init` raising a fatal error if wildcard `*` is configured in production.
+  3. **Credential Rotation & Vercel Secrets Configuration:** Generated cryptographically secure 64-hex-char keys for `JWT_SECRET_KEY` and `CSRF_SECRET_KEY`, and a strong URL-safe key for `NEO4J_PASSWORD`. Added all variables to Vercel Project Environment Variables for both Production and Preview environments with sensitive secret masking (zero secret leakage). Configured `NEXT_PUBLIC_API_URL` on `civicsphere-web`.
+  4. **Live Deployment & Verification:** Redeployed backend to Vercel production (`dpl_9aeUqdFypnR7qLFi6piUamWVTeeX`, aliased to `https://civicsphere-backend.vercel.app`).
+- **Live Verification Results:**
+  - `GET /api/v1/health`: **HTTP 200 OK** (`{"status":"HEALTHY","service":"civicsphere_unified_backend"}`)
+  - `GET /api/v1/health/ready`: **HTTP 200 OK** (`{"ready":true,"graph_nodes":34,"vector_records":12}`)
+  - `POST /api/v1/legal/query` (RTI Act): **HTTP 200 OK** (`confidence: 0.98`, `fail_safe_state: "VERIFIED"`, 5 statutory citations with official URLs)
+  - `POST /api/v1/legal/query` (Unindexed query): **HTTP 200 OK** (`confidence: 0.0`, `fail_safe_state: "INSUFFICIENT_EVIDENCE"`, 0 citations)
+  - Pytest regression suite: **91 passed, 1 skipped, 0 failures (Exit Code: 0)**
+  - Frontend lint (`npm run lint --workspace=civicsphere-web`): **0 errors, 0 warnings (Exit Code: 0)**
+  - Frontend build (`npm run build --workspace=civicsphere-web`): **28 static routes generated, 0 warnings (Exit Code: 0)**
+  - Production dependency audit (`npm audit --omit=dev`): **0 vulnerabilities (Exit Code: 0)**
+  - Complete `npm audit`: **9 dev vulnerabilities** (triaged as accepted build-time tooling risk)
+- **External Persistence Blocker:**
+  - Gate D remains **CONDITIONAL / BLOCKED** pending the user unpausing the Supabase project `wfzapvgaxmzddrgolfok` in the Supabase Dashboard or supplying active PostgreSQL pooler credentials.
+
+

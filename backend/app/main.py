@@ -46,6 +46,13 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Database table initialization notice: {e}")
     # Initialize seed data if available
     from backend.app.knowledge.sources.registry import source_registry
+    if len(source_registry.list_sources()) == 0:
+        try:
+            from data.seed.seed_data import seed_knowledge_base
+            logger.info("Auto-seeding verified knowledge base with core statutory acts...")
+            await seed_knowledge_base()
+        except Exception as e:
+            logger.warning(f"Knowledge base auto-seeding notice: {e}")
     logger.info(f"Knowledge Engine ready. Currently holding {len(source_registry.list_sources())} registered sources.")
     yield
     logger.info("Shutting down CivicSphere Unified Backend...")

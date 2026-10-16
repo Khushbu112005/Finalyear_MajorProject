@@ -182,3 +182,151 @@ Route (app)
 LintExit: 0
 Total problems: 0 (0 errors, 0 warnings)
 ```
+
+---
+
+## 5. Dependency Vulnerability Audit & Triage
+
+### 5.1 Production Dependencies (`npm audit --omit=dev`)
+
+```text
+> npm audit --omit=dev
+
+found 0 vulnerabilities
+```
+- **Exit Code:** 0
+- **Production Packages Audited:** 24 packages
+- **Production Vulnerabilities:** 0 (Zero known vulnerabilities in production client bundles)
+
+### 5.2 Full Dependency Tree (`npm audit`)
+
+```text
+> npm audit
+
+9 vulnerabilities (2 moderate, 7 high)
+- braces (GHSA-vfj7-8cjw-p6xm): transitive devDependency via tailwindcss 3.4.19 / chokidar / fast-glob
+- postcss-selector-parser (GHSA-rj75-hqrm-r3gf): transitive devDependency via tailwindcss 3.4.19 / postcss-nested
+```
+- **Triage Decision:** Accepted Dev-Tooling Risk.
+- **Rationale:** The vulnerable sub-dependencies run exclusively during local compilation and CI linting. They are not bundled into the production JavaScript client distribution. Resolving via `npm audit fix --force` would trigger a breaking upgrade to Tailwind CSS v4 or downgrade Next.js ESLint tooling.
+
+---
+
+## 6. Live Vercel Production Deployment Verification
+
+**Target Production Deployment:**
+- **Project Name:** `civicsphere-backend`
+- **Deployment ID:** `dpl_9aeUqdFypnR7qLFi6piUamWVTeeX`
+- **Production Domain:** `https://civicsphere-backend.vercel.app`
+- **Deployment State:** `READY`
+
+### 6.1 Basic Health Probe (`GET /api/v1/health`)
+
+```json
+HTTP/2 200 OK
+content-type: application/json
+
+{
+  "status": "HEALTHY",
+  "service": "civicsphere_unified_backend",
+  "timestamp": 1792152765.3429961
+}
+```
+
+### 6.2 Knowledge Pipeline Readiness Probe (`GET /api/v1/health/ready`)
+
+```json
+HTTP/2 200 OK
+content-type: application/json
+
+{
+  "ready": true,
+  "graph_nodes": 34,
+  "vector_records": 12
+}
+```
+
+---
+
+## 7. Live Statutory Retrieval & Fail-Safe Verification
+
+### 7.1 Indexed Query: Right to Information Act 2005 (`POST /api/v1/legal/query`)
+
+**Request Payload:**
+```json
+{
+  "query": "What are the rules and timelines for filing a first appeal under Section 19 of the Right to Information Act 2005?"
+}
+```
+
+**Live Production Response:**
+```json
+HTTP/2 200 OK
+{
+  "success": true,
+  "request_id": "28e0f3d1-c05d-4479-bbd3-9cd9b91396b6",
+  "data": {
+    "query": "What are the rules and timelines for filing a first appeal under Section 19 of the Right to Information Act 2005?",
+    "confidence": 0.98,
+    "fail_safe_state": "VERIFIED",
+    "relevant_legal_basis": [
+      "Right to Information Act, 2005, Section 19",
+      "Right to Information Act, 2005, Section 4",
+      "Digital Personal Data Protection Act, 2023, Section 19",
+      "Right to Information Act, 2005, Section 6",
+      "Right to Information Act, 2005, Section 7"
+    ],
+    "sources": [
+      {
+        "section": "19",
+        "official_url": "https://www.indiacode.nic.in/handle/123456789/2065",
+        "verification_status": "ACTIVE",
+        "is_verified": true
+      }
+    ]
+  }
+}
+```
+
+### 7.2 Unindexed Query: Insufficient Evidence Fail-Safe (`POST /api/v1/legal/query`)
+
+**Request Payload:**
+```json
+{
+  "query": "Explain maritime salvage rights under Icelandic admiralty law 1892"
+}
+```
+
+**Live Production Response:**
+```json
+HTTP/2 200 OK
+{
+  "success": true,
+  "request_id": "ef0b7765-eb5c-42a8-8621-55f85d9aa8d3",
+  "data": {
+    "query": "Explain maritime salvage rights under Icelandic admiralty law 1892",
+    "confidence": 0.0,
+    "fail_safe_state": "INSUFFICIENT_EVIDENCE",
+    "relevant_legal_basis": [],
+    "sources": [],
+    "what_it_generally_means": "No verified statutory evidence was found in the official knowledge base matching this specific inquiry.",
+    "warnings": [
+      "Insufficient evidence in official verified sources."
+    ]
+  }
+}
+```
+
+---
+
+## 8. External Persistence Blocker Status
+
+| Resource | Target Host / URL | Connection Result | Diagnostic Root Cause |
+| :--- | :--- | :--- | :--- |
+| **Supabase PostgreSQL Direct** | `db.wfzapvgaxmzddrgolfok.supabase.co:5432` | `socket.gaierror [Errno 11001] getaddrinfo failed` | DNS host withdrawn due to project inactivity pause |
+| **Supabase Pooler** | `aws-0-ap-southeast-2.pooler.supabase.com:5432` | `(ENOTFOUND) tenant/user postgres.wfzapvgaxmzddrgolfok not found` | Tenant unallocated / paused by Supabase after 7 days |
+| **Supabase Storage** | `https://wfzapvgaxmzddrgolfok.supabase.co` | Unreachable | Project dormant; requires user unpause in Supabase console |
+
+**Remediation Required for Full Gate D Sign-Off:**
+The account owner must log into `https://supabase.com/dashboard/project/wfzapvgaxmzddrgolfok` and resume the project.
+

@@ -3,7 +3,7 @@ Configuration management for CivicSphere Module C.
 Loads settings from environment variables with strong typing and security defaults.
 """
 
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 import json
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,14 +23,19 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api/v1"
 
     # Security & Access
-    ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    ALLOWED_ORIGINS: Any = [
+        "https://civicsphere-web.vercel.app",
+        "https://civicsphere-ez3pqxzli-devanshparagsavla1709-6335s-projects.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
     JWT_SECRET_KEY: str  # REQUIRED — no default. Must be set via environment.
     JWT_ALGORITHM: str = "HS256"
     MAX_SOURCE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5MB max payload
 
     # Ingestion & SSRF Protections
     SSRF_PROTECTION_ENABLED: bool = True
-    ALLOWED_INGESTION_SCHEMES: Union[List[str], str] = ["http", "https"]
+    ALLOWED_INGESTION_SCHEMES: Any = ["http", "https"]
     FETCH_TIMEOUT_SECONDS: float = 10.0
     MAX_REDIRECTS: int = 3
 
@@ -106,6 +111,11 @@ class Settings(BaseSettings):
                         f"FATAL: {field_name} contains an unsafe placeholder value. "
                         f"Use a strong random secret for non-development environments."
                     )
+
+        if self.ENVIRONMENT == "production":
+            origins = self.ALLOWED_ORIGINS if isinstance(self.ALLOWED_ORIGINS, list) else [self.ALLOWED_ORIGINS]
+            if "*" in origins:
+                raise ValueError("FATAL: Wildcard CORS ('*') is strictly forbidden in production.")
 
         if self.STORAGE_BACKEND == "supabase":
             if not self.SUPABASE_URL or not self.SUPABASE_SERVICE_ROLE_KEY:
