@@ -169,4 +169,35 @@
 - **External Persistence Blocker:**
   - Gate D remains **CONDITIONAL / BLOCKED** pending the user unpausing the Supabase project `wfzapvgaxmzddrgolfok` in the Supabase Dashboard or supplying active PostgreSQL pooler credentials.
 
+---
+
+### REM-009: Gate D Persistence Verification, Database Migration & Storage Integration
+
+- **Defect Description:**
+  1. **Supabase Inactivity Restored:** The user restored project `wfzapvgaxmzddrgolfok`. Direct IPv4 connections to Supabase free tier are deprecated (IPv6-only), requiring Supavisor pooler at `aws-0-ap-southeast-2.pooler.supabase.com:6543`.
+  2. **Schema Drift on PostgreSQL Tables:** The canonical models (`UserModel`, `CaseModel`, `GovernmentServiceModel`) contained evolved fields (`specialization`, `bar_council_id`, `experience_years`, `bio`, `address`, `mfa_enabled`, `mfa_secret`, `citizen_id`, `counsel_id`, `department`, etc.) not present in the initial migration `0001_initial_schema`. Attempting ORM writes against PostgreSQL resulted in `UndefinedColumnError`.
+  3. **Vercel Missing Persistence Configuration:** Vercel serverless backend lacked `DATABASE_URL` and `STORAGE_BACKEND` variables, falling back to read-only SQLite in `/var/task` and local file uploads.
+  4. **Vector & Graph Storage Persistence Evaluation:** Assessment revealed `InMemoryVectorStore` and `GraphRepository` operate as process-local Python dictionaries, meaning dynamic ingestions do not persist across serverless restarts.
+- **Affected Components:**
+  - `backend/migrations/versions/0002_sync_canonical_models.py`
+  - `backend/tests/unit/test_alembic.py`
+  - Vercel Project Settings (`civicsphere-backend`)
+  - `docs/audit/` documentation suite
+- **Code Fix & Remediation:**
+  1. **Additive Schema Migration:** Created `backend/migrations/versions/0002_sync_canonical_models.py` implementing idempotent, non-destructive `ALTER TABLE` operations adding all missing columns with backward-compatible defaults. Upgraded database to head `0002_sync_canonical_models`.
+  2. **Vercel Persistence Configuration:** Safely configured `DATABASE_URL` (pointing to Supabase pooler on port 6543 with asyncpg), `STORAGE_BACKEND=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (masked), and `SUPABASE_STORAGE_BUCKET=civicsphere-demo-documents` on Vercel for both Production and Preview environments with zero credential leakage.
+  3. **Alembic Test Alignment:** Updated `backend/tests/unit/test_alembic.py` to assert the single migration head and verify that initial revision `0001_initial_schema` is retained in the history chain.
+  4. **Production Deployment & Verification:** Deployed backend to Vercel production (`dpl_2TbbUxW4m3wqN1MF1XixqjGo4xcB`).
+- **Live Empirical Verification Results:**
+  - Direct PostgreSQL 17.6 connection & ORM CRUD: **PASS**
+  - Supabase Storage bucket lifecycle (upload, download, delete): **PASS**
+  - Live serverless registration (`POST /api/v1/auth/register`): **HTTP 200 OK**, verified persistent write to PostgreSQL table `users` via PostgREST.
+  - Live legal query (`POST /api/v1/legal/query`): **HTTP 200 OK**, RTI Section 19 verified citations (0.98 confidence), unindexed fail-safe (0.0 confidence).
+  - Backend regression tests: **91 passed, 1 skipped (Exit Code: 0)**
+  - Frontend lint & build: **0 errors, 0 warnings, 28 static routes compiled (Exit Code: 0)**
+- **Architectural Status:**
+  - Relational database and object storage persistence are **100% OPERATIONAL & VERIFIED**.
+  - Gate D remains **PARTIALLY BLOCKED** on Vector & Knowledge Graph storage architecture because `InMemoryVectorStore` and `GraphRepository` are process-local Python dictionaries and do not persist dynamic source ingestions across serverless instance restarts.
+
+
 

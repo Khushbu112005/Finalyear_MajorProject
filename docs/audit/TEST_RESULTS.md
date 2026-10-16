@@ -319,14 +319,27 @@ HTTP/2 200 OK
 
 ---
 
-## 8. External Persistence Blocker Status
+## 8. Persistence Verification & Architectural Audit (Gate D)
 
-| Resource | Target Host / URL | Connection Result | Diagnostic Root Cause |
-| :--- | :--- | :--- | :--- |
-| **Supabase PostgreSQL Direct** | `db.wfzapvgaxmzddrgolfok.supabase.co:5432` | `socket.gaierror [Errno 11001] getaddrinfo failed` | DNS host withdrawn due to project inactivity pause |
-| **Supabase Pooler** | `aws-0-ap-southeast-2.pooler.supabase.com:5432` | `(ENOTFOUND) tenant/user postgres.wfzapvgaxmzddrgolfok not found` | Tenant unallocated / paused by Supabase after 7 days |
-| **Supabase Storage** | `https://wfzapvgaxmzddrgolfok.supabase.co` | Unreachable | Project dormant; requires user unpause in Supabase console |
+### 8.1 Empirical Persistence Verification Matrix
 
-**Remediation Required for Full Gate D Sign-Off:**
-The account owner must log into `https://supabase.com/dashboard/project/wfzapvgaxmzddrgolfok` and resume the project.
+| Resource | Target Host / Endpoint | Test Type | Result | Empirical Evidence |
+| :--- | :--- | :--- | :--- | :--- |
+| **Supabase PostgreSQL 17.6** | `aws-0-ap-southeast-2.pooler.supabase.com:6543` | Connection & Version Probe | **PASS (200 OK)** | `SELECT version()` returned `PostgreSQL 17.6 on x86_64-pc-linux-gnu`. |
+| **Database Migrations** | Alembic CLI (`alembic upgrade head`) | Schema Migration | **PASS (Head Synced)** | Upgraded from `0001_initial_schema` to `0002_sync_canonical_models`. Verified all canonical columns on `users`, `cases`, `documents`, `government_services`. |
+| **Relational ORM CRUD** | SQLAlchemy AsyncSessionLocal | ORM Insert, Read, Delete | **PASS (Direct DB)** | `UserModel` inserted, read back across session boundary, and cleaned up with 0 errors. |
+| **Supabase Object Storage** | `https://wfzapvgaxmzddrgolfok.supabase.co` | Private Bucket File Lifecycle | **PASS (S3 API)** | Uploaded 46-byte test PDF to `civicsphere-demo-documents`, downloaded byte-for-byte exact match, and deleted object cleanly. |
+| **Live Vercel Production DB Write** | `POST https://civicsphere-backend.vercel.app/api/v1/auth/register` | Serverless End-to-End Registration | **PASS (HTTP 200)** | User `live_user_db2328@civicsphere.org` registered via live Vercel deployment (`dpl_2TbbUxW4m3wqN1MF1XixqjGo4xcB`), verified directly in PostgreSQL `users` table via PostgREST, and cleaned up. |
+
+### 8.2 Architectural Audit of Vector & Graph Stores
+
+- **FastAPI Lifespan Startup Seeding:**
+  - On cold start, `data/seed/seed_data.py` auto-seeds 4 statutory acts (`Right to Information Act, 2005`, `Digital Personal Data Protection Act, 2023`, `Consumer Protection Act, 2019`, `Pradhan Mantri Awas Yojana`).
+  - Readiness probe `/api/v1/health/ready` reports `graph_nodes: 34` and `vector_records: 12`.
+- **Process-Local Storage Audit:**
+  - `vector_store` in `backend/app/knowledge/ingestion/vector_writer.py` is implemented as `InMemoryVectorStore` (`self._vectors: Dict[str, np.ndarray]`, `self._chunks: Dict[str, ChunkRecord]`).
+  - `graph_repository` in `backend/app/knowledge/graph/repository.py` is implemented as an in-memory dictionary store (`self._nodes: Dict[str, EntityDomainModel]`, `self._relationships: Dict[str, RelationshipDomainModel]`).
+  - **Verdict:** Dynamic source ingestions via `POST /api/v1/knowledge/ingest` write only to the ephemeral RAM of that specific serverless instance. They are not persisted to a durable remote database and do not survive container restarts.
+  - **Status:** **Gate D remains PARTIALLY BLOCKED** on Vector & Knowledge Graph storage architecture until persistent remote backends (such as Supabase `pgvector` and Neo4j Aura remote driver) are integrated.
+
 

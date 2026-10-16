@@ -21,14 +21,17 @@ def test_alembic_configuration_and_revisions():
     
     heads = script.get_heads()
     assert len(heads) == 1, "Expected exactly 1 migration head"
-    assert heads[0] == "0001_initial_schema", "Initial schema revision must be present"
     
+    # Verify initial schema revision exists in migration history
+    initial_rev = script.get_revision("0001_initial_schema")
+    assert initial_rev is not None, "Initial schema revision must be present"
+    assert "Initial canonical schema" in initial_rev.doc
+
     head_rev = script.get_revision(heads[0])
     assert head_rev is not None
-    assert "Initial canonical schema" in head_rev.doc
 
     # Verify migration module exports upgrade and downgrade functions
-    spec = importlib.util.spec_from_file_location("migration_0001", head_rev.path)
+    spec = importlib.util.spec_from_file_location("migration_head", head_rev.path)
     migration_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migration_module)
     assert hasattr(migration_module, "upgrade")
