@@ -4,7 +4,7 @@ Uses embedding representations to identify semantically relevant provisions and 
 """
 
 from typing import List, Dict, Any, Optional
-from backend.app.common.providers import EmbeddingProvider, MockEmbeddingProvider
+from backend.app.common.providers import EmbeddingProvider, get_embedding_provider
 from backend.app.knowledge.domain.retrieval import RetrievalCandidate, FilterCriteria
 from backend.app.knowledge.ingestion.vector_writer import vector_store
 
@@ -13,7 +13,7 @@ class VectorRetriever:
     """Semantic retrieval engine with metadata pre-filtering."""
 
     def __init__(self, embedder_provider: Optional[EmbeddingProvider] = None):
-        self.provider = embedder_provider or MockEmbeddingProvider()
+        self.provider = embedder_provider or get_embedding_provider()
 
     async def search(
         self,

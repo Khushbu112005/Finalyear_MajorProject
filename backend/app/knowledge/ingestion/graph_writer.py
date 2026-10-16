@@ -30,3 +30,14 @@ class GraphWriter:
             edges_written += 1
 
         return nodes_written, edges_written
+
+    @classmethod
+    async def write_extracted_graph_async(
+        cls,
+        entities: List[EntityDomainModel],
+        relationships: List[RelationshipDomainModel]
+    ) -> Tuple[int, int]:
+        nodes_written, edges_written = cls.write_extracted_graph(entities, relationships)
+        if hasattr(graph_repository, "persist_all_async"):
+            await graph_repository.persist_all_async(entities, relationships)
+        return nodes_written, edges_written

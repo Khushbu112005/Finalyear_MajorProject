@@ -249,6 +249,49 @@
 - **Release Status:**
   - **GATE D IS 100% RESOLVED AND PASSED.** All 6 Release Gates (A, B, C, D, E, F) are satisfied with empirical proof.
 
+---
+
+### REM-011: Genuine Multi-Provider Semantic Embeddings, End-to-End Awaited Dynamic Ingestion, and Direct pgvector SQL Distance Querying
+
+- **Defect Description:**
+  1. **Silent Fallback & Missing External Embedding Providers:** Retrieval previously relied on implicit default embeddings without explicit provider classes for industry standard model providers (OpenAI, Gemini, HuggingFace).
+  2. **Serverless Background Task Drop Risk:** In serverless execution (Vercel), background fire-and-forget tasks scheduled via `asyncio.create_task()` could be frozen upon HTTP response completion before persistence was committed.
+  3. **SQL Parameter Ambiguity in asyncpg pgvector Search:** When passing `None` values into raw SQL queries (`:param IS NULL OR col = :param`), `asyncpg` threw `AmbiguousParameterError` because PostgreSQL could not infer the parameter type.
+  4. **Synthetic Test Records in Production DB:** Previous validation scripts had left synthetic verification users and documents in the database.
+- **Affected Components:**
+  - `backend/app/common/providers/embedding.py`
+  - `backend/app/common/providers/__init__.py`
+  - `backend/app/common/config.py`
+  - `backend/app/knowledge/retrieval/vector.py`
+  - `backend/app/knowledge/ingestion/pipeline.py`
+  - `backend/app/knowledge/ingestion/vector_writer.py`
+  - `backend/app/knowledge/ingestion/graph_writer.py`
+  - `backend/app/knowledge/sources/registry.py`
+  - `docs/audit/`
+- **Code Fix & Remediation:**
+  1. **Multi-Provider Semantic Embedding Engine:**
+     - Implemented `OpenAIEmbeddingProvider` (`text-embedding-3-small` / `text-embedding-3-large`).
+     - Implemented `GeminiEmbeddingProvider` (`text-embedding-004`).
+     - Implemented `HuggingFaceEmbeddingProvider` (`all-MiniLM-L6-v2`).
+     - Implemented deterministic `MockEmbeddingProvider` (384-dimensional feature hashing with stopword removal).
+     - Configured `get_embedding_provider()` to fail explicitly with `ValueError` when external credentials are missing rather than silently falling back.
+     - Documented production status honestly: production currently operates on `EMBEDDING_PROVIDER="mock"` until external LLM keys are supplied to Vercel settings.
+  2. **Direct Awaited Ingestion Persistence:**
+     - Updated `IngestionPipeline` to await `source_registry.persist_source_async()`, `GraphWriter.write_extracted_graph_async()`, and `vector_store.store_chunk_mapping_async()` synchronously within `ingest_source()`.
+  3. **Dynamic Parameterized pgvector Search:**
+     - Refactored `PersistentVectorStore.search()` to dynamically construct `WHERE` clauses for provided filters (`jurisdiction`, `verification_status`, `source_id`), eliminating untyped NULL parameter ambiguity in asyncpg.
+     - Supported native pgvector `<=>` cosine distance retrieval returning `similarity`, `chunk`, `text`, and `section_number`.
+  4. **Synthetic Record Cleanup:**
+     - Safely cleaned all synthetic verification accounts (`prod_verify_*`, `auth_test_*`, `live_user_*`) and temporary ingestion documents from PostgreSQL.
+- **Empirical Live Verification Results:**
+  - Semantic separation test: RTI Sec 19 vs query similarity = 0.4260 vs Consumer Protection Act similarity = 0.1861.
+  - End-to-end dynamic ingestion of "Telecommunications Cybersecurity Guidelines 2026": 3 chunks, 3 vector embeddings, 6 entities, and 5 relationships persisted in Supabase PostgreSQL.
+  - Fresh unhydrated process pgvector search (`PersistentVectorStore.search()`): Section 2 retrieved as top candidate with 0.4286 similarity score.
+  - Full backend pytest suite: **91 passed, 1 skipped (Exit Code: 0 in 21.98s)**.
+  - Frontend ESLint (`npm run lint --workspace=civicsphere-web`): **0 errors, 0 warnings (Exit Code: 0)**.
+  - Frontend Next.js build (`npm run build --workspace=civicsphere-web`): **28 static routes generated (Exit Code: 0)**.
+  - Production dependency audit (`npm audit --omit=dev`): **0 vulnerabilities (Exit Code: 0)**.
+
 
 
 

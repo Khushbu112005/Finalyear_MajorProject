@@ -305,6 +305,14 @@ class PersistentGraphRepository(GraphRepository):
         except Exception as e:
             logger.warning(f"Error persisting graph relationship {rel.relationship_id} to DB: {e}")
 
+    async def persist_all_async(self, entities: List[EntityDomainModel], relationships: List[RelationshipDomainModel]) -> None:
+        """Directly awaits persistence of entities and relationships to PostgreSQL."""
+        if settings.ENVIRONMENT != "test":
+            for ent in entities:
+                await self._persist_entity_to_db(ent)
+            for rel in relationships:
+                await self._persist_relationship_to_db(rel)
+
     async def hydrate_from_db(self) -> Tuple[int, int]:
         """Loads all nodes and relationships from persistent PostgreSQL database."""
         if settings.ENVIRONMENT == "test":

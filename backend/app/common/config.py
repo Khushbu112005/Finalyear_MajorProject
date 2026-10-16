@@ -70,11 +70,16 @@ class Settings(BaseSettings):
     NEO4J_MAX_NEIGHBORS: int = 10
 
     # AI Providers
-    EMBEDDING_PROVIDER: str = "mock"  # mock, openai, voyage, huggingface
+    EMBEDDING_PROVIDER: str = "mock"  # mock, openai, google, gemini, huggingface
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     EMBEDDING_DIMENSION: int = 384
-    LLM_PROVIDER: str = "mock"  # mock, anthropic, openai
+    OPENAI_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
+    GOOGLE_API_KEY: Optional[str] = None
+    HUGGINGFACE_API_KEY: Optional[str] = None
+    LLM_PROVIDER: str = "mock"  # mock, anthropic, openai, google
     LLM_MODEL: str = "claude-3-5-sonnet-20241022"
+    ANTHROPIC_API_KEY: Optional[str] = None
     RERANKER_PROVIDER: str = "heuristic"  # heuristic, cohere, cross-encoder
 
     # Retrieval Engine Config

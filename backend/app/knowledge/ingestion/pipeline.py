@@ -99,12 +99,14 @@ class IngestionPipeline:
         )
 
         source_registry.update_status(source_rec.source_id, ingestion_status=IngestionStatus.PROCESSING)
+        await source_registry.persist_source_async(source_rec)
 
         try:
             # Step 5: VERIFICATION STATUS DETERMINATION
             v_status, v_warnings = VerificationEngine.validate_source_verification(source_rec)
             source_registry.update_status(source_rec.source_id, verification_status=v_status)
             source_rec.verification_status = v_status
+            await source_registry.persist_source_async(source_rec)
 
             # Step 6: CLEAN & PARSE
             cleaned_text = ContentCleaner.clean_text(source_content)
@@ -141,14 +143,15 @@ class IngestionPipeline:
 
             # Step 11: GRAPH INSERTION
             source_registry.update_status(source_rec.source_id, ingestion_status=IngestionStatus.INDEXING)
-            nodes_written, edges_written = GraphWriter.write_extracted_graph(unique_entities, all_relationships)
+            nodes_written, edges_written = await GraphWriter.write_extracted_graph_async(unique_entities, all_relationships)
 
             # Step 12: VECTOR INSERTION
             for chunk, vec in embedded_chunks:
-                vector_store.store_chunk_mapping(chunk, vec)
+                await vector_store.store_chunk_mapping_async(chunk, vec)
 
             # Step 13: REGISTRY FINALIZATION & AUDIT
             source_registry.update_status(source_rec.source_id, ingestion_status=IngestionStatus.COMPLETED)
+            await source_registry.persist_source_async(source_rec)
 
             AuditManager.record_event(
                 event_type="KNOWLEDGE_INGESTION_COMPLETED",
@@ -179,6 +182,10 @@ class IngestionPipeline:
 
         except Exception as exc:
             source_registry.update_status(source_rec.source_id, ingestion_status=IngestionStatus.FAILED)
+            try:
+                await source_registry.persist_source_async(source_rec)
+            except Exception:
+                pass
             AuditManager.record_event(
                 event_type="KNOWLEDGE_INGESTION_FAILED",
                 actor_id=actor_id,

@@ -9,6 +9,9 @@ from backend.app.common.providers.llm import (
 from backend.app.common.providers.embedding import (
     EmbeddingProvider,
     MockEmbeddingProvider,
+    OpenAIEmbeddingProvider,
+    GeminiEmbeddingProvider,
+    HuggingFaceEmbeddingProvider,
     get_embedding_provider,
 )
 from backend.app.common.providers.reranker import (
@@ -31,6 +34,9 @@ __all__ = [
     "get_llm_provider",
     "EmbeddingProvider",
     "MockEmbeddingProvider",
+    "OpenAIEmbeddingProvider",
+    "GeminiEmbeddingProvider",
+    "HuggingFaceEmbeddingProvider",
     "get_embedding_provider",
     "RerankerProvider",
     "HeuristicRerankerProvider",

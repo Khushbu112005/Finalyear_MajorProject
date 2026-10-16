@@ -198,6 +198,10 @@ class SourceRegistry:
         self._chunks.clear()
         self._verified_urls.clear()
 
+    async def persist_source_async(self, src: SourceRecord) -> None:
+        """Polymorphic async persistence hook."""
+        pass
+
 
 class PersistentSourceRegistry(SourceRegistry):
     """
@@ -275,6 +279,11 @@ class PersistentSourceRegistry(SourceRegistry):
                 })
         except Exception as e:
             logger.warning(f"Error persisting source {src.source_id} to DB: {e}")
+
+    async def persist_source_async(self, src: SourceRecord) -> None:
+        """Directly awaits persistence of source record to PostgreSQL."""
+        if settings.ENVIRONMENT != "test":
+            await self._persist_source_to_db(src)
 
     async def hydrate_from_db(self) -> int:
         """Loads registered sources from PostgreSQL database into memory."""

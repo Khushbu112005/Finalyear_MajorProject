@@ -77,6 +77,9 @@ class InMemoryVectorStore(VectorStore):
             "act_title": chunk.act_title,
         }
 
+    async def store_chunk_mapping_async(self, chunk: ChunkRecord, vector: List[float]) -> None:
+        self.store_chunk_mapping(chunk, vector)
+
     async def search(
         self,
         query_vector: List[float],
@@ -101,6 +104,9 @@ class InMemoryVectorStore(VectorStore):
 
             # Apply metadata filters
             if filters:
+                if "source_id" in filters and filters["source_id"]:
+                    if meta.get("source_id") != filters["source_id"]:
+                        continue
                 if "jurisdiction" in filters and filters["jurisdiction"]:
                     if meta.get("jurisdiction", "").lower() != filters["jurisdiction"].lower():
                         continue
@@ -128,7 +134,11 @@ class InMemoryVectorStore(VectorStore):
             results.append({
                 "chunk_id": chunk_id,
                 "score": score,
+                "similarity": score,
                 "chunk": chunk,
+                "text": chunk.text if chunk else "",
+                "section_number": chunk.section_number if chunk else None,
+                "act_title": chunk.act_title if chunk else None,
                 "metadata": self._metadata.get(chunk_id, {})
             })
 
@@ -166,6 +176,12 @@ class PersistentVectorStore(InMemoryVectorStore):
         super().store_chunk_mapping(chunk, vector)
         if settings.ENVIRONMENT != "test":
             self._schedule_persist(chunk, vector)
+
+    async def store_chunk_mapping_async(self, chunk: ChunkRecord, vector: List[float]) -> None:
+        """Stores chunk in memory and directly awaits persistence to PostgreSQL."""
+        super().store_chunk_mapping(chunk, vector)
+        if settings.ENVIRONMENT != "test":
+            await self._persist_chunk_to_db(chunk, vector)
 
     def _schedule_persist(self, chunk: ChunkRecord, vector: List[float]) -> None:
         try:
@@ -333,6 +349,120 @@ class PersistentVectorStore(InMemoryVectorStore):
         except Exception as e:
             logger.warning(f"Notice: Vector store hydration from DB: {e}")
             return len(self._vectors)
+
+    async def search(
+        self,
+        query_vector: List[float],
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Executes vector similarity search using PostgreSQL pgvector <=> operator
+        when connected to PostgreSQL, falling back to local memory when running offline or in unit tests.
+        """
+        if settings.ENVIRONMENT != "test":
+            try:
+                from backend.app.common.database import engine
+                from sqlalchemy import text
+                
+                vec_str = "[" + ",".join(f"{x:.6f}" for x in query_vector) + "]"
+                where_clauses = []
+                params = {"vec": vec_str, "top_k": top_k}
+
+                if filters:
+                    jur = filters.get("jurisdiction")
+                    if jur:
+                        where_clauses.append("LOWER(c.jurisdiction) = LOWER(:jur)")
+                        params["jur"] = jur
+
+                    vstat = filters.get("verification_status")
+                    if isinstance(vstat, list):
+                        vstat = vstat[0].value if hasattr(vstat[0], 'value') else vstat[0]
+                    elif vstat and hasattr(vstat, 'value'):
+                        vstat = vstat.value
+                    if vstat:
+                        where_clauses.append("c.verification_status = :vstat")
+                        params["vstat"] = vstat
+
+                    sid_filter = filters.get("source_id")
+                    if sid_filter:
+                        where_clauses.append("c.source_id = :sid")
+                        params["sid"] = sid_filter
+
+                where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+                async with engine.begin() as conn:
+                    query_sql = text(f"""
+                        SELECT c.chunk_id, c.source_id, c.source_version, c.chunk_index, c.text,
+                               c.content_hash, c.act_title, c.chapter, c.section_number, c.section_title,
+                               c.subsection_number, c.page_number, c.jurisdiction, c.source_type,
+                               c.verification_status, c.effective_date, c.metadata,
+                               1.0 - (e.embedding <=> CAST(:vec AS vector)) AS similarity_score
+                        FROM knowledge_chunks c
+                        JOIN knowledge_embeddings e ON c.chunk_id = e.chunk_id
+                        {where_sql}
+                        ORDER BY e.embedding <=> CAST(:vec AS vector) ASC
+                        LIMIT :top_k;
+                    """)
+                    res = await conn.execute(query_sql, params)
+                    rows = res.fetchall()
+                    if rows:
+                        results = []
+                        for r in rows:
+                            cid = r[0]
+                            sid = r[1]
+                            sver = r[2]
+                            cidx = r[3]
+                            txt = r[4]
+                            chash = r[5]
+                            atitle = r[6]
+                            chap = r[7]
+                            secnum = r[8]
+                            sectitle = r[9]
+                            subsec = r[10]
+                            pg = r[11]
+                            jur_val = r[12]
+                            stype = r[13]
+                            vstat_val = r[14]
+                            effdate = r[15]
+                            meta = r[16] if isinstance(r[16], dict) else json.loads(r[16] or "{}")
+                            sim_score = float(r[17]) if r[17] is not None else 0.0
+
+                            chunk = ChunkRecord(
+                                chunk_id=cid,
+                                source_id=sid,
+                                source_version=sver,
+                                chunk_index=cidx,
+                                text=txt,
+                                content_hash=chash,
+                                act_title=atitle,
+                                chapter=chap,
+                                section_number=secnum,
+                                section_title=sectitle,
+                                subsection_number=subsec,
+                                page_number=pg,
+                                jurisdiction=jur_val,
+                                source_type=stype,
+                                verification_status=VerificationStatus(vstat_val) if vstat_val in VerificationStatus._value2member_map_ else VerificationStatus.ACTIVE,
+                                effective_date=effdate,
+                                metadata=meta
+                            )
+                            self._chunks[cid] = chunk
+                            results.append({
+                                "chunk_id": cid,
+                                "score": max(0.0, min(1.0, sim_score)),
+                                "similarity": max(0.0, min(1.0, sim_score)),
+                                "chunk": chunk,
+                                "text": txt,
+                                "section_number": secnum,
+                                "act_title": atitle,
+                                "metadata": meta
+                            })
+                        return results
+            except Exception as e:
+                logger.debug(f"Notice: pgvector direct search falling back to memory: {e}")
+
+        return await super().search(query_vector=query_vector, top_k=top_k, filters=filters)
 
     async def delete_by_source(self, source_id: str, source_version: Optional[int] = None) -> int:
         deleted = await super().delete_by_source(source_id, source_version)
