@@ -10,6 +10,7 @@ import uuid
 import time
 import logging
 
+import asyncio
 from packages.schemas.contracts import ApiResponse
 from backend.app.common.config import settings
 from backend.app.common.errors import (
@@ -41,7 +42,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Initializing {settings.APP_NAME} in [{settings.ENVIRONMENT}] mode...")
     # Initialize database models
     try:
-        await init_models()
+        await asyncio.wait_for(init_models(), timeout=2.5)
     except Exception as e:
         logger.warning(f"Database table initialization notice: {e}")
     # Hydrate persistent knowledge from database (survives cold starts and serverless container lifecycles)
@@ -49,9 +50,9 @@ async def lifespan(app: FastAPI):
     from backend.app.knowledge.graph.repository import graph_repository
     from backend.app.knowledge.ingestion.vector_writer import vector_store
     try:
-        await source_registry.hydrate_from_db()
-        await graph_repository.hydrate_from_db()
-        await vector_store.hydrate_from_db()
+        await asyncio.wait_for(source_registry.hydrate_from_db(), timeout=2.0)
+        await asyncio.wait_for(graph_repository.hydrate_from_db(), timeout=2.0)
+        await asyncio.wait_for(vector_store.hydrate_from_db(), timeout=2.0)
     except Exception as e:
         logger.warning(f"Notice: Knowledge persistence hydration: {e}")
 

@@ -23,7 +23,11 @@ engine_kwargs = {
     "future": True,
 }
 if str(DATABASE_URL).startswith("postgresql+asyncpg"):
-    engine_kwargs["connect_args"] = {"statement_cache_size": 0}
+    engine_kwargs["connect_args"] = {
+        "statement_cache_size": 0,
+        "timeout": 3.0,
+        "command_timeout": 5.0,
+    }
 
 engine = create_async_engine(DATABASE_URL, **engine_kwargs)
 

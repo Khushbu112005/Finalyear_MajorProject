@@ -22,8 +22,8 @@ Each requirement is evaluated against running code and execution artifacts, cate
 ### Summary Statistics
 - **Total Tracked Requirements:** 40
 - **VERIFIED:** 38 (95.0%)
-- **PARTIAL / CONDITIONAL:** 2 (5.0%) — Multi-provider semantic embeddings (active mock provider in production without API keys); Neo4j Aura (relational graph active in PostgreSQL).
-- **BLOCKED:** 0 (Core engine has graceful fallbacks for all operations).
+- **PARTIAL / CONDITIONAL:** 2 (5.0%) — Multi-provider semantic embeddings (mock active in production without commercial API keys); Cloud DB writes (dormant on Supabase free tier; local SQLite & Docker Compose verified).
+- **BLOCKED (Production):** 2 (Real commercial semantic inference, Non-dormant cloud PostgreSQL).
 - **FAILED:** 0 (0.0%).
 
 ---
