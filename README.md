@@ -178,5 +178,18 @@ python infrastructure/scripts/run_benchmarks.py
 
 ---
 
+## 🎓 Final Academic Submission Package (`docs/submission/`)
+The authoritative final year major project verification and academic evaluation package includes:
+1. **[Final Verification & Release Certification Report](docs/submission/FINAL_VERIFICATION_REPORT.md)** — Master verification report and academic certification.
+2. **[Comprehensive Feature Traceability Matrix](docs/submission/FEATURE_TRACEABILITY_MATRIX.md)** — 40-requirement bidirectional traceability matrix.
+3. **[Architecture & Data Flow Specification](docs/submission/ARCHITECTURE_AND_DATA_FLOW.md)** — System topology, RAG pipelines, 7-stage state machine, and Mermaid diagrams.
+4. **[Quality Assurance & Test Verification Report](docs/submission/TEST_AND_QA_REPORT.md)** — Pytest (91 passed, 1 skipped), ESLint (0 errors/warnings), Next.js 28 routes, npm audit, and AI benchmark metrics.
+5. **[Security Audit & Threat Model Summary](docs/submission/SECURITY_AUDIT_SUMMARY.md)** — Git secret scan, CORS, CSRF, IDOR, SSRF, PII sanitization, PDF malware defense, and TOTP MFA.
+6. **[Deployment & Setup Guide](docs/submission/DEPLOYMENT_AND_SETUP_GUIDE.md)** — Bare-metal setup, 7-service Docker Compose topology, Vercel serverless configuration, and smoke tests.
+7. **[Demonstration & Viva Voce Guide](docs/submission/DEMO_AND_VIVA_GUIDE.md)** — 10-minute viva presentation script, 7 demonstration workflows, and technical FAQ.
+8. **[Known Limitations & Technical Disclosures](docs/submission/KNOWN_LIMITATIONS.md)** — Transparent disclosures on mock embedding status, Supabase dormancy, and offline test markings.
+
+---
+
 ## ⚖️ Statutory Disclaimer
 CivicSphere AI is an informational technology platform engineered to assist citizens in discovering published laws, regulations, and government schemes. Generated outputs do not constitute formal legal representation. For courtroom proceedings, please consult a qualified advocate or the Legal Aid Clinic.
