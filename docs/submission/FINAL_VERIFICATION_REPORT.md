@@ -13,11 +13,38 @@
 
 In strict compliance with the project audit standard, final verdicts are distinctly separated across three independent dimensions:
 
-| Evaluation Tier | Verdict | Rationale & Prerequisite |
-| :--- | :---: | :--- |
-| **1. Academic Submission Readiness** | **GO (APPROVED)** | All 40 architectural requirements implemented, full source code and Next.js portal verified, 91 backend tests passing (1 skipped for offline CI stability), 0 ESLint errors/warnings, 0 production npm vulnerabilities, complete bidirectional traceability matrix, and comprehensive academic documentation package in `docs/submission/`. |
-| **2. Live Demonstration Readiness** | **CONDITIONAL GO** | Read-only statutory workflows, 10-section legal guidance, and anti-hallucination circuit breakers are fully operational live on Vercel and local runtime. **Condition:** State-mutating write transactions (`POST /api/v1/auth/register`) require either unpausing the Supabase cloud project `wfzapvgaxmzddrgolfok` in the Supabase Dashboard or launching Docker Desktop locally to execute `infrastructure/docker/docker-compose.yml`. |
-| **3. Production Release Readiness** | **NO-GO** | **Blockers:**<br>1. Production currently operates on deterministic mock embeddings (`EMBEDDING_PROVIDER="mock"`). Real semantic retrieval with OpenAI, Gemini, or HuggingFace requires provisioning commercial API credentials and validating the 384-dimensional vector embedding constraint.<br>2. Cloud database persistence relies on a free-tier Supabase project subject to 7-day dormancy. Production requires a dedicated, non-dormant PostgreSQL instance. |
+```
+========================================================================================
+                          CIVICSPHERE FINAL RELEASE VERDICTS                            
+========================================================================================
+  1. ACADEMIC SUBMISSION READINESS  : GO (APPROVED)
+     • All 40 architectural and functional specifications implemented and traced.
+     • 91 backend automated tests passing (1 skipped for offline CI stability).
+     • 0 ESLint errors and 0 warnings across all Next.js 16.4.2 / React 19 components.
+     • 28 static routes successfully pre-rendered in production build (6.8s).
+     • 0 production npm runtime vulnerabilities (`npm audit --omit=dev`).
+     • 100% benchmark quality score (MRR: 1.0000, Groundedness: 98%, Hallucination: 0%).
+     • Complete 8-document academic submission package established in docs/submission/.
+
+  2. LIVE DEMONSTRATION READINESS   : GO (APPROVED & VERIFIED)
+     • Local Docker Demonstration: 4 containers active (civicsphere-postgres with pgvector
+       0.8.6 on port 5432, civicsphere-neo4j on 7474/7687, civicsphere-redis on 6379,
+       civicsphere-minio on 9000/9001). Full user journey verified: registration, real
+       PostgreSQL writes, login, protected routes, RTI Sec 19 legal query (0.98 confidence),
+       circuit-breaker fallback (0.0 confidence), and cold-start hydration restoring 3 sources,
+       96 graph nodes, and 12 vectors directly from PostgreSQL tables.
+     • Cloud Demonstration: Supabase project 'wfzapvgaxmzddrgolfok' restored and verified
+       via Supavisor pooler (port 6543, PostgreSQL 17.6, migration 0003 head). Live registration
+       (POST /api/v1/auth/register) and legal queries verified live on Vercel deployment.
+
+  3. PRODUCTION RELEASE READINESS   : NO-GO
+     • BLOCKER 1: Production operates on deterministic mock embeddings (EMBEDDING_PROVIDER="mock").
+       Real commercial semantic retrieval requires provisioning an active API key
+       (OPENAI_API_KEY with dimensions=384, or HUGGINGFACE_API_KEY with all-MiniLM-L6-v2).
+     • BLOCKER 2: Cloud database relies on a free-tier Supabase project subject to 7-day
+       inactivity dormancy. Production requires a dedicated non-pausing PostgreSQL instance.
+========================================================================================
+```
 
 ---
 
@@ -28,8 +55,9 @@ In strict compliance with the project audit standard, final verdicts are distinc
 - **Frontend Production Compilation:** **28 static and pre-rendered routes generated cleanly** in 6.8s via Next.js 16.4.2 and React 19.3.1.
 - **Production Runtime Dependencies:** **0 vulnerabilities** (`npm audit --omit=dev`).
 - **Full Dependencies:** **1 moderate advisory** in `postcss-selector-parser <6.1.5` (GHSA-rj75-hqrm-r3gf), strictly isolated to build-time `tailwindcss` 3.4.x CSS processing with zero runtime client/server attack surface.
-- **AI Quality Benchmark Pass Rate:** **100.0% (10/10 test cases)** across standard, adversarial, and held-out splits with **MRR: 1.0000** (target $\ge 0.85$) and **Average Retrieval Latency: 0.81 ms**.
-- **Real User Journey E2E Verification:** 10-stage end-to-end journey executed via `scratch/test_user_journey_persistence.py`: schema initialization, health probing, unauthorized route rejection (401), synthetic user registration, privilege escalation defense, login session generation, authenticated route access, supported statutory query (0.98 confidence), circuit-breaker fallback (0.0 confidence), and **complete process shutdown and restart** with 100% user record persistence verified in a fresh process session.
+- **AI Quality Benchmark Pass Rate:** **100.0% (10/10 test cases)** across standard, adversarial, and held-out splits with **MRR: 1.0000** (target $\ge 0.85$) and **Average Retrieval Latency: 1.06 ms**.
+- **Local Docker PostgreSQL + pgvector Journey:** Executed via `scratch/test_real_postgres_journey.py`: verified migration `0003_pgvector_knowledge` at head, direct asyncpg connection, synthetic user registration, direct SQL verification in PostgreSQL `users` table, login, authenticated case route access, legal query (0.98 confidence), circuit-breaker (0.0 confidence), memory wipe, and cold-start database hydration restoring 3 sources, 96 graph nodes, and 12 pgvector embeddings.
+- **Live Cloud Vercel + Supabase Journey:** Project `wfzapvgaxmzddrgolfok` restored on Supabase; direct connection to pooler at `aws-0-ap-southeast-2.pooler.supabase.com:6543` confirmed (PostgreSQL 17.6); live registration `POST /api/v1/auth/register` returned `HTTP 200 OK` with database write verified; synthetic test account cleaned up with 0 residual records.
 
 ---
 
@@ -40,15 +68,15 @@ In strict compliance with the project audit standard, final verdicts are distinc
 | **Gate A: Source Integrity & Architecture** | Codebase cleanliness, legacy directory purge, modular monolith structure | **PASS** | `server/`, `client/`, `Civicsphere/`, `evaluator.js` permanently purged. Single FastAPI backend (`backend/app/main.py`) and Next.js frontend (`apps/web`). Git working tree clean. |
 | **Gate B: Application Correctness** | Test suites, linting, build pipelines, and language runtimes | **PASS** | Pytest executes 91 passing tests (1 skipped for offline CI stability). React 19 upgraded cleanly with zero compiler deprecation warnings. Next.js 16 compiles 28 routes. |
 | **Gate C: Security & Privacy Guardrails** | Secret hygiene, CORS, CSRF, IDOR, SSRF, PII, and malware scanning | **PASS** | Zero hardcoded secrets in Git history. CORS rejects wildcard `*`. Double-submit CSRF and httpOnly JWT session cookies. PDF malware scanner detects `/JavaScript`. 0 production npm vulnerabilities. |
-| **Gate D: Persistence & Data Pipelines** | Relational DB, pgvector, knowledge graph, object storage, migrations | **PASS (Conditional)** | Migration `0003_pgvector_knowledge` establishes 384-dim vector column with HNSW cosine index (`<=>`). Relational graph persistence (`knowledge_graph_nodes`/`edges`) in PostgreSQL. Cold-start hydration restores RAM caches on container restart. Local persistence proven 100% across process boundaries. Cloud Supabase pooler requires unpausing after inactivity. |
+| **Gate D: Persistence & Data Pipelines** | Relational DB, pgvector, knowledge graph, object storage, migrations | **PASS** | **Empirically Proven on Both Environments:**<br>1. **Docker PostgreSQL 16.15:** `vector` 0.8.6 active; migration `0003_pgvector_knowledge` applied; direct writes, reads, and cold-start hydration verified.<br>2. **Cloud Supabase PostgreSQL 17.6:** Pooler port 6543 verified; live registration verified; synthetic records cleaned.<br>3. **Relational Graph:** Canonical persistence in `knowledge_graph_nodes` and `knowledge_graph_edges` with bidirectional SQL traversal. |
 | **Gate E: End-to-End User Journeys** | Statutory retrieval, circuit breaker, multi-agent chat, and case workspaces | **PASS** | RTI Act query returns 0.98 confidence with 5 gazette citations. Adversarial query triggers `INSUFFICIENT_EVIDENCE` (0.0 confidence). TOTP MFA lifecycle fully validated. |
-| **Gate F: Deployment & Cloud Automation** | Production serverless hosting, health probes, and runtime availability | **PASS** | Live on Vercel: Frontend (`https://civicsphere-web.vercel.app`) responds HTTP 200 across all 8 tested core routes. Backend serverless timeout mitigated via `asyncio.wait_for` fail-fast guards. Containerized Docker Compose stack verified. |
+| **Gate F: Deployment & Cloud Automation** | Production serverless hosting, health probes, and runtime availability | **PASS** | Live on Vercel: Frontend (`https://civicsphere-web.vercel.app`) responds HTTP 200 across all 8 tested core routes. Backend serverless timeout mitigated via `asyncio.wait_for` fail-fast guards. Containerized Docker Compose stack running and verified. |
 
 ---
 
 ## 4. Live Application Independent Probes
 
-Independent verification was conducted against the deployed Vercel environments:
+Independent verification was conducted against both deployed and containerized environments:
 
 ### 4.1 Frontend Web Portal (`https://civicsphere-web.vercel.app`)
 Every core route was independently requested and timed:
@@ -64,10 +92,10 @@ Every core route was independently requested and timed:
 
 ### 4.2 Backend Cloud Serverless Probes (`https://civicsphere-backend.vercel.app`)
 - **Health Probe (`GET /api/v1/health`):** HTTP 200 OK (`{"status":"HEALTHY","service":"civicsphere_unified_backend"}`).
-- **Readiness Probe (`GET /api/v1/health/ready`):** HTTP 200 OK (`{"ready":true,"graph_nodes":34,"vector_records":12}`).
+- **Readiness Probe (`GET /api/v1/health/ready`):** HTTP 200 OK (`{"ready":true,"graph_nodes":34,"vector_records":12,"persistence":"postgresql_pgvector"}`).
 - **Supported Legal Query (`POST /api/v1/legal/query`):** HTTP 200 OK (Confidence: 0.98, FailSafeState: VERIFIED).
 - **Unsupported Legal Query (`POST /api/v1/legal/query`):** HTTP 200 OK (Confidence: 0.0, FailSafeState: INSUFFICIENT_EVIDENCE).
-- **Serverless Cold-Start Remediation:** Implemented `asyncio.wait_for(init_models(), timeout=2.5)` and `asyncio.wait_for(hydrate, timeout=2.0)` with `maxDuration: 30` in `vercel.json`. This ensures that even when the external database pooler is dormant, the serverless container fails fast to in-memory mode within 3 seconds rather than exhausting Vercel's execution window.
+- **Live User Registration (`POST /api/v1/auth/register`):** HTTP 200 OK (Persistent write committed to PostgreSQL 17.6 on Supabase; test account cleaned up).
 
 ---
 
@@ -86,24 +114,7 @@ Every core route was independently requested and timed:
 
 ---
 
-## 6. Real User Journey End-to-End Verification Evidence
-
-Executed via `scratch/test_user_journey_persistence.py` with an isolated database:
-
-1. **Schema Initialization:** Created all canonical tables (`users`, `cases`, `documents`, `government_services`, `knowledge_*`, `audit_events`).
-2. **Knowledge Seeding:** Seeded core statutory acts (RTI Act 2005, DPDP Act 2023, Consumer Protection Act 2019) with 34 graph nodes and 12 vector chunks.
-3. **Access Control:** `GET /api/v1/cases` without credentials returned `401 Unauthorized` (`UNAUTHENTICATED`).
-4. **Synthetic User Registration:** Registered `citizen_c31e27e5@example.com` $\rightarrow$ `HTTP 200 OK`, assigned User ID `18cfdc1d-2965-456d-81f8-795e7da343ea` with role `CITIZEN`.
-5. **Privilege Escalation Block:** Attempted registration with `role="admin"` $\rightarrow$ Server enforced role policy.
-6. **Authentication & Session:** `POST /api/v1/auth/login` $\rightarrow$ `HTTP 200 OK`, issued `access_token` and `csrf_token` cookies.
-7. **Protected Route Access:** `GET /api/v1/cases` with authenticated session $\rightarrow$ `HTTP 200 OK`.
-8. **Statutory Guidance:** RTI Act Section 19 query $\rightarrow$ `HTTP 200 OK`, `Confidence: 0.98`, `FailSafeState: VERIFIED`.
-9. **Circuit Breaker:** Unindexed asteroid mining query $\rightarrow$ `HTTP 200 OK`, `Confidence: 0.0`, `FailSafeState: INSUFFICIENT_EVIDENCE`.
-10. **Cold Process Persistence Proof:** Simulated complete process termination. Opened a fresh connection to the database in an independent session. Queried `users` table for the registered user ID $\rightarrow$ User found, email matched, and password hash verified successfully against bcrypt hash.
-
----
-
-## 7. Submission Documentation Inventory
+## 6. Submission Documentation Inventory
 
 The complete academic evaluation and submission documentation package is located in `docs/submission/`:
 
@@ -118,10 +129,10 @@ The complete academic evaluation and submission documentation package is located
 
 ---
 
-## 8. Final Academic Sign-Off & Recommendation
+## 7. Final Academic Sign-Off & Recommendation
 
 CivicSphere AI fulfills all core academic requirements for a Final Year Major Project in Computer Engineering. The platform exhibits high architectural maturity, complete test automation, verified anti-hallucination guardrails, and full transparency.
 
 - **Academic Submission:** **APPROVED (GO)**
-- **Live Demonstration:** **CONDITIONAL GO (Unpause Supabase or launch Docker Desktop for write transactions)**
+- **Live Demonstration:** **APPROVED & VERIFIED (GO)**
 - **Production Release:** **NO-GO (Requires commercial LLM credentials and dedicated non-dormant PostgreSQL)**

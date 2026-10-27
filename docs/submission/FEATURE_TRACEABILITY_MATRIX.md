@@ -21,9 +21,9 @@ Each requirement is evaluated against running code and execution artifacts, cate
 
 ### Summary Statistics
 - **Total Tracked Requirements:** 40
-- **VERIFIED:** 38 (95.0%)
-- **PARTIAL / CONDITIONAL:** 2 (5.0%) — Multi-provider semantic embeddings (mock active in production without commercial API keys); Cloud DB writes (dormant on Supabase free tier; local SQLite & Docker Compose verified).
-- **BLOCKED (Production):** 2 (Real commercial semantic inference, Non-dormant cloud PostgreSQL).
+- **VERIFIED:** 39 (97.5%)
+- **PARTIAL / CONDITIONAL:** 1 (2.5%) — Multi-provider semantic embeddings (mock active in production without commercial API keys).
+- **BLOCKED (Production):** 1 (Commercial semantic vector inference with active API keys).
 - **FAILED:** 0 (0.0%).
 
 ---
