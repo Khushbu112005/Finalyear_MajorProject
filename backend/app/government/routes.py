@@ -1,3 +1,4 @@
+import asyncio
 """
 Government Service Navigator API Routes.
 Provides problem analysis, service search, eligibility checking, and procedure retrieval.
@@ -72,7 +73,7 @@ async def list_services(
         stmt = select(GovernmentServiceModel).where(GovernmentServiceModel.jurisdiction == jurisdiction)
         if category:
             stmt = stmt.where(GovernmentServiceModel.category == category)
-        res = await db.execute(stmt)
+        res = await asyncio.wait_for(db.execute(stmt), timeout=1.5)
         services = [s.to_dict() for s in res.scalars().all()]
     except Exception:
         services = []
@@ -92,7 +93,7 @@ async def get_service_details(
 ):
     """Fetches full procedural steps, documents, and eligibility rules for a specific service."""
     try:
-        res = await db.execute(select(GovernmentServiceModel).where(GovernmentServiceModel.service_id == service_id))
+        res = await asyncio.wait_for(db.execute(select(GovernmentServiceModel).where(GovernmentServiceModel.service_id == service_id)), timeout=1.5)
         svc = res.scalar_one_or_none()
         if svc:
             return ApiResponse(data=svc.to_dict(), confidence=1.0)

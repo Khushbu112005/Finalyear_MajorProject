@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
         try:
             from data.seed.seed_data import seed_knowledge_base
             logger.info("Auto-seeding verified knowledge base with core statutory acts...")
-            await seed_knowledge_base()
+            await asyncio.wait_for(seed_knowledge_base(), timeout=2.0)
         except Exception as e:
             logger.warning(f"Knowledge base auto-seeding notice: {e}")
 
