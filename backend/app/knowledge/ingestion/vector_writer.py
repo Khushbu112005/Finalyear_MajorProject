@@ -177,14 +177,20 @@ class PersistentVectorStore(InMemoryVectorStore):
         if settings.ENVIRONMENT != "test":
             self._schedule_persist(chunk, vector)
 
-    async def store_chunk_mapping_async(self, chunk: ChunkRecord, vector: List[float]) -> None:
-        """Stores chunk in memory and directly awaits persistence to PostgreSQL."""
+    async def store_chunk_mapping_async(self, chunk: ChunkRecord, vector: List[float], timeout: float = 5.0) -> bool:
+        """Stores chunk in memory and directly awaits persistence to PostgreSQL with observable error logging."""
         super().store_chunk_mapping(chunk, vector)
         if settings.ENVIRONMENT != "test":
             try:
-                await asyncio.wait_for(self._persist_chunk_to_db(chunk, vector), timeout=0.2)
-            except Exception:
-                pass
+                await asyncio.wait_for(self._persist_chunk_to_db(chunk, vector), timeout=timeout)
+                return True
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout persisting chunk {chunk.chunk_id} to database after {timeout}s.")
+                return False
+            except Exception as e:
+                logger.error(f"Failed to persist chunk {chunk.chunk_id} to database: {e}")
+                return False
+        return True
 
     def _schedule_persist(self, chunk: ChunkRecord, vector: List[float]) -> None:
         try:

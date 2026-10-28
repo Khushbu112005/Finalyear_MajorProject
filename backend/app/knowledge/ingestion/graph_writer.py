@@ -41,7 +41,9 @@ class GraphWriter:
         if hasattr(graph_repository, "persist_all_async"):
             try:
                 import asyncio
-                await asyncio.wait_for(graph_repository.persist_all_async(entities, relationships), timeout=0.2)
-            except Exception:
-                pass
+                await asyncio.wait_for(graph_repository.persist_all_async(entities, relationships), timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning("Timeout persisting graph entities to database.")
+            except Exception as e:
+                logger.error(f"Failed to persist graph entities to database: {e}")
         return nodes_written, edges_written

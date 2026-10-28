@@ -59,9 +59,20 @@ async def test_live_003_004_agent_multistep_execution():
     assert "eviction" in result["response"].lower() or "tenant" in result["response"].lower() or "verified" in result["response"].lower()
 
 
-# --- LIVE-005 & LIVE-010: Legal Query Validation & Out-of-Domain Circuit Breaker ---
-def test_live_005_legal_query_length_validation(client):
-    """LIVE-005: Query shorter than 3 characters must return 422 with INVALID_QUERY_LENGTH."""
+# --- LIVE-005 & LIVE-010: Out-of-Domain Circuit Breaker & Legal Query Validation ---
+@pytest.mark.anyio
+async def test_live_005_out_of_domain_insufficient_evidence():
+    """LIVE-005: Out-of-domain questions (e.g. US Green Card) must trigger Gate 2 INSUFFICIENT_EVIDENCE."""
+    query = "How do I renew my US Green Card in California under alien immigration law?"
+    res = await LegalGuidanceEngine.process_legal_query(query)
+    
+    assert res.fail_safe_state == "INSUFFICIENT_EVIDENCE" or res.fail_safe_state == FailSafeState.INSUFFICIENT_EVIDENCE
+    assert res.confidence == 0.0
+    assert len(res.sources) == 0, "Out-of-domain query must not hallucinate Indian statutory sources"
+
+
+def test_live_010_legal_query_length_validation(client):
+    """LIVE-010: Query shorter than 3 characters must return 422 with INVALID_QUERY_LENGTH."""
     response = client.post(
         "/api/v1/legal/query",
         json={"query": "a "},
@@ -69,17 +80,6 @@ def test_live_005_legal_query_length_validation(client):
     )
     assert response.status_code == 422
     assert "INVALID_QUERY_LENGTH" in response.text or "at least 3" in response.text
-
-
-@pytest.mark.anyio
-async def test_live_010_out_of_domain_insufficient_evidence():
-    """LIVE-010: Out-of-domain questions (e.g. US Green Card) must trigger Gate 2 INSUFFICIENT_EVIDENCE."""
-    query = "How do I renew my US Green Card in California under alien immigration law?"
-    res = await LegalGuidanceEngine.process_legal_query(query)
-    
-    assert res.fail_safe_state == "INSUFFICIENT_EVIDENCE" or res.fail_safe_state == FailSafeState.INSUFFICIENT_EVIDENCE
-    assert res.confidence == 0.0
-    assert len(res.sources) == 0, "Out-of-domain query must not hallucinate Indian statutory sources"
 
 
 # --- LIVE-006 & LIVE-014: Government Schemes Catalog & Context Extraction ---

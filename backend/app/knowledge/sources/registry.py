@@ -280,14 +280,20 @@ class PersistentSourceRegistry(SourceRegistry):
         except Exception as e:
             logger.warning(f"Error persisting source {src.source_id} to DB: {e}")
 
-    async def persist_source_async(self, src: SourceRecord) -> None:
-        """Directly awaits persistence of source record to PostgreSQL."""
+    async def persist_source_async(self, src: SourceRecord, timeout: float = 5.0) -> bool:
+        """Directly awaits persistence of source record to PostgreSQL with observable error handling."""
         if settings.ENVIRONMENT != "test":
             try:
                 import asyncio
-                await asyncio.wait_for(self._persist_source_to_db(src), timeout=0.2)
-            except Exception:
-                pass
+                await asyncio.wait_for(self._persist_source_to_db(src), timeout=timeout)
+                return True
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout persisting source {src.source_id} to database after {timeout}s.")
+                return False
+            except Exception as e:
+                logger.error(f"Failed to persist source {src.source_id} to database: {e}")
+                return False
+        return True
 
     async def hydrate_from_db(self) -> int:
         """Loads registered sources from PostgreSQL database into memory."""
