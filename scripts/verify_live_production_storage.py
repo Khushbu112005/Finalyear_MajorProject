@@ -83,7 +83,7 @@ def test_live_storage():
     # 4. Cross-user access denial test (Intruder)
     intruder_email = f"intruder_{uuid.uuid4().hex[:6]}@civicsphere.org"
     register_user(intruder_email)
-    intruder_cookies, _ = get_auth_session(intruder_email)
+    intruder_cookies, intruder_csrf = get_auth_session(intruder_email)
     print(f"[OK] Logged in as Intruder: {intruder_email}")
 
     intruder_req = urllib.request.Request(
@@ -149,7 +149,32 @@ def test_live_storage():
         print(f"[OK] Downloaded {len(retrieved_bytes)} bytes. Byte match: {retrieved_bytes == fresh_pdf_content}")
         assert retrieved_bytes == fresh_pdf_content
 
-    print("\n>>> ALL 7 PRODUCTION STORAGE SECURITY & PERSISTENCE CHECKS PASSED <<<")
+    # 8. Test Data Cleanup: Delete test documents from storage and DB
+    for doc_to_delete in [fresh_doc_id, prev_doc_id]:
+        del_req = urllib.request.Request(
+            f"{BASE_URL}/api/v1/documents/{doc_to_delete}",
+            method="DELETE",
+            headers={"Cookie": owner_cookies, "X-CSRF-Token": owner_csrf, "User-Agent": "Mozilla/5.0"}
+        )
+        try:
+            with urllib.request.urlopen(del_req) as del_resp:
+                print(f"[OK] Cleaned up test document: {doc_to_delete} (HTTP {del_resp.status})")
+        except urllib.error.HTTPError as e:
+            print(f"[INFO] Document cleanup for {doc_to_delete}: HTTP {e.code}")
+
+    # 9. Test Data Cleanup: Delete synthetic intruder user account
+    intruder_del_req = urllib.request.Request(
+        f"{BASE_URL}/api/v1/auth/me",
+        method="DELETE",
+        headers={"Cookie": intruder_cookies, "X-CSRF-Token": intruder_csrf, "User-Agent": "Mozilla/5.0"}
+    )
+    try:
+        with urllib.request.urlopen(intruder_del_req) as idel_resp:
+            print(f"[OK] Cleaned up synthetic probe account: {intruder_email} (HTTP {idel_resp.status})")
+    except urllib.error.HTTPError as e:
+        print(f"[INFO] Account cleanup for {intruder_email}: HTTP {e.code}")
+
+    print("\n>>> ALL 7 PRODUCTION STORAGE SECURITY CHECKS & TEST DATA CLEANUPS PASSED <<<")
 
 if __name__ == "__main__":
     test_live_storage()

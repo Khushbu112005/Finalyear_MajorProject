@@ -35,7 +35,7 @@ In the Indian legal and civic landscape, citizens encounter severe barriers to d
 ### Step-by-Step Demonstration Execution
 
 #### Demo 1: Grounded Statutory Legal Guidance (`/legal`)
-1. **Navigate to:** `https://civicsphere-web.vercel.app/legal` (or `http://localhost:3000/legal`)
+1. **Navigate to:** `https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app/legal` (or `http://localhost:3000/legal`)
 2. **Input Query:**
    > *"What are the rules and timelines for filing a first appeal under Section 19 of the Right to Information Act 2005?"*
 3. **Observe Results:**
@@ -53,7 +53,7 @@ In the Indian legal and civic landscape, citizens encounter severe barriers to d
    - The synthesizer suppresses speculative generation, explicitly stating that no authoritative statutory gazette record in the knowledge base validates the claim, and directs the user to authorized legal desks.
 
 #### Demo 3: Government Scheme Navigator & Eligibility Evaluation (`/government`)
-1. **Navigate to:** `https://civicsphere-web.vercel.app/government`
+1. **Navigate to:** `https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app/government`
 2. **Input Citizen Situation:**
    > *"I am a small farmer in Maharashtra with 1.5 hectares of land seeking agricultural equipment subsidies."*
 3. **Execute Evaluation:**
@@ -62,7 +62,7 @@ In the Indian legal and civic landscape, citizens encounter severe barriers to d
    - Outputs tailored scheme recommendation, eligibility score, required document checklist, and step-by-step grievance/application desk procedures.
 
 #### Demo 4: Intelligent Document AI & Active Malware Scanning (`/documents`)
-1. **Navigate to:** `https://civicsphere-web.vercel.app/documents`
+1. **Navigate to:** `https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app/documents`
 2. **Upload Legitimate Document:**
    - Upload sample legal notice PDF (`<= 5MB`).
    - Observe visual 7-stage state machine progression: `UPLOADED` $\rightarrow$ `VALIDATING` $\rightarrow$ `SECURITY_SCANNING` $\rightarrow$ `PROCESSING` $\rightarrow$ `ANALYZING` $\rightarrow$ `LINKING_KNOWLEDGE` $\rightarrow$ `READY`.
@@ -71,7 +71,7 @@ In the Indian legal and civic landscape, citizens encounter severe barriers to d
    - Point out `DocumentSecurityScanner` byte-level inspection blocking malicious PDFs containing `/JavaScript` or `/Launch` exploit triggers before parsing.
 
 #### Demo 5: Multi-Agent Specialist Coordination (`/assistant`)
-1. **Navigate to:** `https://civicsphere-web.vercel.app/assistant`
+1. **Navigate to:** `https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app/assistant`
 2. **Execute Complex Civic Multi-Domain Query:**
    > *"My tenant has stopped paying rent for 6 months and is threatening me. What are my legal remedies and how do I file a police complaint?"*
 3. **Observe Execution:**

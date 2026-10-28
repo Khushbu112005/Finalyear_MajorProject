@@ -284,3 +284,31 @@ async def update_profile(
     await db.commit()
     await db.refresh(current_user)
     return ApiResponse(data={"user": current_user.to_safe_dict(), "message": "Profile updated."}, confidence=1.0)
+
+
+@router.delete("/me", response_model=ApiResponse[Dict[str, Any]])
+async def delete_account(
+    response: Response,
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """DPDP Act Right to Erasure: Allows authenticated citizen users to permanently delete their account."""
+    if current_user.role == UserRole.ADMIN or str(getattr(current_user, "role", "")).upper() == "ADMIN":
+        raise CivicSphereException(code="ADMIN_DELETION_FORBIDDEN", message="Administrative accounts cannot be self-deleted.", status_code=403)
+
+    user_id = current_user.id
+    email = current_user.email
+    await db.delete(current_user)
+    await db.commit()
+
+    is_prod = settings.ENVIRONMENT == "production"
+    samesite_val = "none" if is_prod else "lax"
+    secure_val = is_prod
+
+    response.delete_cookie(key="access_token", path="/", samesite=samesite_val, secure=secure_val)
+    response.delete_cookie(key="csrf_token", path="/", samesite=samesite_val, secure=secure_val)
+
+    return ApiResponse(
+        success=True,
+        data={"user_id": user_id, "email": email, "deleted": True, "message": "Account and credentials permanently removed."}
+    )

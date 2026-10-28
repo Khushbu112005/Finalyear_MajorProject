@@ -129,3 +129,33 @@ def test_logout():
     resp = client.post("/api/v1/auth/logout")
     assert resp.status_code == 200
     assert resp.json()["success"] is True
+
+
+def test_delete_account_lifecycle():
+    """Verify DPDP Act self-deletion: register, delete account, and confirm credentials are removed."""
+    unique_email = f"delete_me_{uuid.uuid4().hex[:8]}@example.com"
+    reg_payload = {
+        "name": "Temporary Citizen",
+        "email": unique_email,
+        "password": "TempPassword_2026!",
+        "role": "CITIZEN",
+    }
+    reg_resp = client.post("/api/v1/auth/register", json=reg_payload)
+    assert reg_resp.status_code == 200
+    csrf_token = reg_resp.json()["data"]["csrf_token"]
+
+    # Delete self
+    del_resp = client.delete(
+        "/api/v1/auth/me",
+        headers={"X-CSRF-Token": csrf_token},
+        cookies=reg_resp.cookies,
+    )
+    assert del_resp.status_code == 200
+    assert del_resp.json()["data"]["deleted"] is True
+
+    # Confirm login is no longer possible
+    login_resp = client.post(
+        "/api/v1/auth/login",
+        json={"email": unique_email, "password": "TempPassword_2026!"},
+    )
+    assert login_resp.status_code == 401

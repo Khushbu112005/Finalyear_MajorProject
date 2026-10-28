@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     # Security & Access
     ALLOWED_ORIGINS: Any = [
         "https://civicsphere-web.vercel.app",
+        "https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app",
         "https://civicsphere-ez3pqxzli-devanshparagsavla1709-6335s-projects.vercel.app",
         "http://localhost:3000",
         "http://127.0.0.1:3000",

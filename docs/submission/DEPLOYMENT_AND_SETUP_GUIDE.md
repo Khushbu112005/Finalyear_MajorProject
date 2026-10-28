@@ -136,7 +136,8 @@ docker-compose logs -f backend
 
 CivicSphere AI is verified and live on Vercel Serverless ASGI:
 - **Backend URL:** `https://civicsphere-backend.vercel.app`
-- **Frontend URL:** `https://civicsphere-web.vercel.app`
+- **Frontend Canonical URL:** `https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app`
+- **Frontend Short Alias:** `https://civicsphere-web.vercel.app` (Requires Vercel team domain alias assignment in project settings)
 
 ### 4.1 Backend Vercel Configuration (`vercel.json`)
 The backend is bundled via `@vercel/python` routing all requests to `api/index.py`:
@@ -167,7 +168,7 @@ Configure the following in the Vercel Project Settings (`Settings -> Environment
 | `DATABASE_URL` | Production | `postgresql+asyncpg://postgres.[REF]:[PASS]@[HOST]:6543/postgres` |
 | `JWT_SECRET_KEY` | Production | 64-hex-character cryptographically secure key |
 | `CSRF_SECRET_KEY` | Production | 64-hex-character cryptographically secure key |
-| `ALLOWED_ORIGINS` | Production | `["https://civicsphere-web.vercel.app"]` |
+| `ALLOWED_ORIGINS` | Production | `["https://civicsphere-web.vercel.app", "https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app"]` |
 | `STORAGE_BACKEND` | Production | `supabase` (or `local` for fallback) |
 | `SUPABASE_URL` | Production | `https://[PROJECT_REF].supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Production | Masked secret API key |
@@ -202,4 +203,4 @@ After deploying, verify the deployment by running the following commands:
    ```
 
 4. **Verify Frontend Access:**
-   Open `https://civicsphere-web.vercel.app` in any modern web browser.
+   Open `https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app` in any modern web browser.

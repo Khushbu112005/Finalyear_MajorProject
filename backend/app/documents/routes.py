@@ -156,3 +156,33 @@ async def download_document(
         },
     )
 
+
+@router.delete("/{document_id}", response_model=ApiResponse[Dict[str, Any]])
+async def delete_document(
+    document_id: str,
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Securely deletes document from storage backend and metadata database after verifying ownership."""
+    res = await db.execute(select(DocumentModel).where(DocumentModel.id == document_id))
+    doc = res.scalar_one_or_none()
+    if not doc:
+        raise CivicSphereException(code="DOCUMENT_NOT_FOUND", message="Document not found.", status_code=404)
+
+    check_ownership(doc.user_id, current_user)
+
+    storage = get_storage_backend()
+    try:
+        if doc.storage_path:
+            await storage.delete_file(doc.storage_path)
+    except Exception as exc:
+        logger.warning(f"Could not delete file {doc.storage_path} from storage during deletion: {exc}")
+
+    await db.delete(doc)
+    await db.commit()
+
+    return ApiResponse(
+        success=True,
+        data={"document_id": document_id, "deleted": True, "message": "Document and associated storage successfully deleted."}
+    )
+

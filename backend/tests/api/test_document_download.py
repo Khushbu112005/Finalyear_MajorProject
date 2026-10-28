@@ -121,3 +121,48 @@ def test_storage_write_failure_never_returns_false_success(client):
 
     app.dependency_overrides.pop(get_current_user, None)
 
+
+def test_delete_document_and_owner_isolation(client):
+    """Test secure deletion of documents, verifying owner authorization and deletion."""
+    user_owner = UserModel(
+        id="usr_doc_del_owner",
+        email="delowner@civicsphere.org",
+        role="CITIZEN",
+        is_active=True,
+    )
+    user_intruder = UserModel(
+        id="usr_doc_del_intruder",
+        email="delintruder@civicsphere.org",
+        role="CITIZEN",
+        is_active=True,
+    )
+
+    pdf_content = b"%PDF-1.4\nDelete test synthetic content\n%%EOF"
+    fake_pdf = io.BytesIO(pdf_content)
+
+    # 1. Upload as owner
+    app.dependency_overrides[get_current_user] = lambda: user_owner
+    up_resp = client.post(
+        "/api/v1/documents/upload",
+        files={"file": ("to_delete.pdf", fake_pdf, "application/pdf")},
+    )
+    assert up_resp.status_code in (200, 201)
+    doc_id = up_resp.json()["data"]["id"]
+
+    # 2. Intruder attempts deletion -> 403 Forbidden
+    app.dependency_overrides[get_current_user] = lambda: user_intruder
+    intruder_del = client.delete(f"/api/v1/documents/{doc_id}")
+    assert intruder_del.status_code == 403
+
+    # 3. Owner deletes document -> 200 OK
+    app.dependency_overrides[get_current_user] = lambda: user_owner
+    owner_del = client.delete(f"/api/v1/documents/{doc_id}")
+    assert owner_del.status_code == 200
+    assert owner_del.json()["data"]["deleted"] is True
+
+    # 4. Confirm document no longer exists -> 404
+    fetch_resp = client.get(f"/api/v1/documents/{doc_id}")
+    assert fetch_resp.status_code == 404
+
+    app.dependency_overrides.pop(get_current_user, None)
+

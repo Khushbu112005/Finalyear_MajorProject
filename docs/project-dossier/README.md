@@ -42,7 +42,8 @@ This technical dossier represents the definitive, forensic architectural audit a
 CIVICSPHERE AI — VERIFICATION STATUS SUMMARY
 ========================================================================================
 Source Commit:              b566c93 (Branch: main, Synced to origin/main)
-Live Web Portal:            https://civicsphere-web.vercel.app (HTTP 200 OK)
+Live Web Portal:            https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app (HTTP 200 OK)
+Live Web Portal Alias:      https://civicsphere-web.vercel.app (Pending Vercel domain alias assignment)
 Live Backend API:           https://civicsphere-backend.vercel.app (HTTP 200 HEALTHY)
 Cloud Persistence:          Supabase PostgreSQL 17.6 + pgvector (Pooler port 6543)
 Local Docker Stack:         PostgreSQL 16.15 + pgvector (5432), Neo4j (7687), Redis (6379), MinIO (9000)

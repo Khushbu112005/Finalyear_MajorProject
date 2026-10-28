@@ -128,7 +128,8 @@ async def csrf_protection_middleware(request: Request, call_next):
                 allowed_origins = set(settings.ALLOWED_ORIGINS)
                 is_allowed = (
                     origin_base in allowed_origins or
-                    parsed_origin.hostname in ("127.0.0.1", "localhost", "civicsphere-web.vercel.app") or
+                    parsed_origin.hostname in ("127.0.0.1", "localhost", "civicsphere-web.vercel.app", "civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app") or
+                    (parsed_origin.hostname and parsed_origin.hostname.endswith(".vercel.app") and "civicsphere" in parsed_origin.hostname) or
                     "*" in allowed_origins
                 )
                 if not is_allowed:
