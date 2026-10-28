@@ -73,6 +73,14 @@ async def list_services(
 
     res = await db.execute(stmt)
     services = [s.to_dict() for s in res.scalars().all()]
+    if not services:
+        try:
+            from data.seed.seed_government_services import seed_government_services
+            await seed_government_services(db)
+            res = await db.execute(stmt)
+            services = [s.to_dict() for s in res.scalars().all()]
+        except Exception:
+            pass
     return ApiResponse(data=services, confidence=1.0)
 
 
