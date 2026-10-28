@@ -19,9 +19,9 @@ This report establishes the verified state of the system based on automated regr
 
 | Evaluation Dimension | Release Gate Verdict | Operating Scope & Boundary Conditions |
 | :--- | :---: | :--- |
-| **Academic Major Project Defense** | **PASSED (UNCONDITIONAL)** | Full architecture demonstrated: 8 statutory acts indexed, 12 verified government schemes, tamper-evident audit logs, citizen case management, multi-agent reasoning timeline, CSRF defenses, and zero frontend crashes across 31 static routes. |
-| **Live Controlled Demonstration** | **PASSED (WITH HONEST DISCLOSURES)** | Live Vercel frontend and backend operational. Real multi-step agent reasoning loop executes against verified statutory sources. Disclose that neural LLM generation runs in deterministic grounded synthesis mode due to unset external Gemini credentials. Durable Supabase Cloud Storage is fully operational. |
-| **Commercial Multi-Tenant Production** | **CONDITIONAL (BLOCKED ON GEMINI_API_KEY)** | Core application logic, security perimeters, and durable cloud document storage are production-hardened and verified live in Supabase. Commercial launch is **CONDITIONAL** solely on provisioning the Google Gemini API Key (`GEMINI_API_KEY`) in Vercel backend environment settings for neural LLM generation. |
+| **Academic Major Project Defense** | **PASSED (UNCONDITIONAL)** | Full architecture demonstrated: 8 statutory acts indexed, 12 verified government schemes, tamper-evident audit logs, citizen case management, multi-agent reasoning timeline, CSRF defenses, durable Supabase document persistence, DPDP erasure endpoints, and zero frontend crashes across 31 static routes. |
+| **Live Controlled Demonstration** | **PASSED (WITH EXPLICIT DISCLOSURES)** | Live Vercel frontend and backend operational. Real multi-step agent reasoning loop executes against verified statutory sources. Disclose that neural LLM generation runs in deterministic grounded synthesis mode due to unset external Gemini credentials. Durable Supabase Cloud Storage is fully operational. |
+| **Commercial Multi-Tenant Production** | **NO-GO / CONDITIONAL (BLOCKED ON GEMINI_API_KEY & DOMAIN POLICY)** | Core application logic, security perimeters, DPDP erasure controls, and durable cloud document storage are production-hardened and verified live in Supabase. Commercial launch is **NO-GO / CONDITIONAL** solely on: (1) Provisioning `GEMINI_API_KEY` in Vercel backend environment settings for neural LLM generation, and (2) Assigning the short domain `civicsphere-web.vercel.app` in the Vercel dashboard. |
 
 ---
 
@@ -32,6 +32,8 @@ This report establishes the verified state of the system based on automated regr
 - **Current Branch**: `main`
 - **Origin Remote**: `https://github.com/Khushbu112005/Finalyear_MajorProject.git`
 - **Commit History**:
+  - `9c691b3` — *feat(security): add document and account erasure endpoints for test cleanup and DPDP compliance*
+  - `661c9b0` — *docs(audit): certify durable storage closure, update release gate report, and record live probe telemetry*
   - `9f48964` — *fix(storage): add is_malicious to DocumentModel and enforce durable Supabase storage in production*
   - `dc4fe5d` — *fix(blockers): implement secure document download route, observable persistence, and reconcile test suite*
   - `e378f51` — *docs(audit): finalize release gate report and reconcile findings matrix*
@@ -47,15 +49,16 @@ This report establishes the verified state of the system based on automated regr
 - **Backend Target**: `https://civicsphere-backend.vercel.app`
   - Platform: Vercel Serverless Function (Python 3.11 / FastAPI 0.115 / Uvicorn)
   - Region: `iad1` (Washington, D.C.) / Edge Gateway `bom1` (Mumbai)
+  - Deployment ID: `dpl_ByHrUeaCBXRoDsAvoFQp46eF5rCP` (Active Production)
   - Live Health Probe: `HTTP 200 OK` (`{"status": "HEALTHY", "version": "1.0.0"}`)
   - Live Authenticated Traversal: `HTTP 200 OK` on `/api/v1/knowledge/graph/neighborhood/{entity_id}`
   - Live Durable Document Storage: Verified upload to `supabase://civicsphere-demo-documents/` and authorized download across separate invocations.
 - **Frontend Target (Canonical Team Deployment)**: `https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app`
   - Platform: Next.js 16.4.2 App Router (Turbopack / React 19)
   - Root Directory: `apps/web` (configured in Vercel project settings)
-  - Live Status: `HTTP 200 OK` on `/`, `/legal/acts`, `/robots.txt`, `/sitemap.xml`
+  - Live Status: `HTTP 200 OK` across all core routes (`/`, `/legal`, `/legal/acts`, `/government`, `/cases`, `/documents`, `/knowledge`, `/agents`, `/admin`, `/robots.txt`, `/sitemap.xml`)
 - **Frontend Short Alias**: `https://civicsphere-web.vercel.app`
-  - Live Status: Returns `HTTP 404 (X-Vercel-Error: NOT_FOUND)` on Vercel edge due to scoped-team routing policy. Marked **BLOCKED (ROUTING / DNS POLICY)**.
+  - Live Status: Returns `HTTP 404 (X-Vercel-Error: NOT_FOUND)` on Vercel edge due to scoped-team routing policy. Marked **BLOCKED (ROUTING / DNS POLICY)**. Owner action documented.
 
 ---
 
@@ -115,10 +118,11 @@ This report establishes the verified state of the system based on automated regr
 ### Gate 5: Code Quality, Type Safety & Test Coverage — PASSED
 - **Backend Test Suite (Reconciled Non-Overlapping Count)**:
   - Exact Command: `pytest -p no:pytest_ethereum`
-  - Collected Items: 118 unique test cases across `backend/tests`
-  - Results: **117 passed, 1 skipped, 0 failed** in 62.21s (Exit Code: 0)
+  - Collected Items: 120 unique test cases across `backend/tests`
+  - Results: **119 passed, 1 skipped, 0 failed** in 72.49s (Exit Code: 0)
   - Key Modules:
-    - `test_document_download.py`: 2 passed (authorized retrieval & failure handling)
+    - `test_document_download.py`: 3 passed (authorized retrieval, failure handling, and owner isolation/deletion)
+    - `test_auth_api.py`: 4 passed (registration, MFA lifecycle, logout, and DPDP account self-deletion)
     - `test_csrf.py`: 5 passed (CSRF reject, token match, origin, bearer bypass)
     - `test_remediation_suite.py`: 9 passed
     - `test_agent_and_corpus_remediation.py`: 10 passed
@@ -209,14 +213,27 @@ $ curl -s -o /dev/null -w "%{http_code}\n" https://civicsphere-web-devanshparags
 [OK] Logged in as Owner: probe_8b0c44@civicsphere.org
 [OK] Cross-invocation download for existing doc_e43e305ea609: HTTP 200, 76 bytes
 [OK] Unauthenticated download blocked: HTTP 401 (Expected 401)
-[OK] Logged in as Intruder: intruder_c042d2@civicsphere.org
+[OK] Logged in as Intruder: intruder_510fd7@civicsphere.org
 [OK] Cross-user download blocked: HTTP 403 (Expected 403 Forbidden)
 [OK] Non-existent document correctly returns: HTTP 404 (Expected 404 Not Found)
-[OK] Fresh Document Uploaded: doc_ae95c8020c0e
-[OK] Durable Storage URI: supabase://civicsphere-demo-documents/doc_598aafc728b24cc5a9760773abadf29f.pdf
+[OK] Fresh Document Uploaded: doc_9dc91aeb7960
+[OK] Durable Storage URI: supabase://civicsphere-demo-documents/doc_454284fefa3e41bcb2122766dfb48646.pdf
 [OK] Downloaded 116 bytes. Byte match: True
+[OK] Cleaned up test document: doc_9dc91aeb7960 (HTTP 200)
+[OK] Cleaned up synthetic probe account: intruder_510fd7@civicsphere.org (HTTP 200)
 
->>> ALL 7 PRODUCTION STORAGE SECURITY & PERSISTENCE CHECKS PASSED <<<
+>>> ALL 7 PRODUCTION STORAGE SECURITY CHECKS & TEST DATA CLEANUPS PASSED <<<
+
+# 10. Test Data Purge & Backdoor Elimination Verification
+$ python -c "import urllib.request, json; ..."
+doc_e43e305ea609 deleted: 200
+probe_8b0c44@civicsphere.org deleted: 200
+
+# 11. Post-Cleanup Authentication Verification
+$ curl -s -X POST https://civicsphere-backend.vercel.app/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "probe_8b0c44@civicsphere.org", "password": "StrongPassword123!"}'
+HTTP 401 Unauthorized {"code": "INVALID_CREDENTIALS", "message": "Invalid email or password provided."}
 ```
 
 ---
@@ -225,7 +242,15 @@ $ curl -s -o /dev/null -w "%{http_code}\n" https://civicsphere-web-devanshparags
 
 CivicSphere AI has resolved all reproducible defects from the live black-box audit. The system achieves complete functional and security conformance within its current architectural scope.
 
-The platform is certified as:
-- **Academic Major Project Defense**: **PASSED (UNCONDITIONAL)**
-- **Controlled Demonstrations**: **PASSED (WITH HONEST DISCLOSURES)**
-- **Commercial Multi-Tenant Production**: **CONDITIONAL (BLOCKED ON GEMINI_API_KEY)** (Durable cloud storage is operational and verified; production launch requires provisioning Google Gemini API Key for neural inference).
+The platform is certified with three independent verdicts:
+
+1. **Academic Major Project Defense**: **`PASSED (UNCONDITIONAL)`**  
+   All functional modules, 8 Indian statutes, 12 government schemes, knowledge graph, tamper-evident audit logs, case workspace, and CSRF protection are fully operational with 0 frontend crashes.
+
+2. **Controlled Demonstrations**: **`PASSED (WITH EXPLICIT DISCLOSURES)`**  
+   Live canonical web frontend and backend API are operational. Disclose that neural LLM generation runs in deterministic grounded synthesis mode due to unset external Gemini credentials. Durable Supabase Storage is verified live.
+
+3. **Commercial Multi-Tenant Production**: **`NO-GO / CONDITIONAL`**  
+   Commercial production launch is **NO-GO** until the repository owner performs the following two administrative actions:
+   - **Action A (Neural Inference)**: Add `GEMINI_API_KEY` to Vercel backend environment variables (`vercel env add GEMINI_API_KEY production`) and redeploy.
+   - **Action B (Custom Domain)**: Assign `civicsphere-web.vercel.app` in Vercel project domain settings (currently returns HTTP 404 due to team scope). The working canonical URL is `https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app`.

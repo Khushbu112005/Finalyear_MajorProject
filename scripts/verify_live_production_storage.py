@@ -12,8 +12,21 @@ import urllib.request
 import urllib.error
 import json
 import uuid
+import time
 
 BASE_URL = "https://civicsphere-backend.vercel.app"
+
+def safe_urlopen(req, timeout=15, retries=2):
+    for attempt in range(retries + 1):
+        try:
+            return urllib.request.urlopen(req, timeout=timeout)
+        except urllib.error.HTTPError:
+            raise
+        except Exception as e:
+            if attempt < retries:
+                time.sleep(1.5)
+                continue
+            raise e
 
 def get_auth_session(email: str, password: str = "StrongPassword123!"):
     req = urllib.request.Request(
@@ -21,7 +34,7 @@ def get_auth_session(email: str, password: str = "StrongPassword123!"):
         data=json.dumps({"email": email, "password": password}).encode("utf-8"),
         headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
     )
-    with urllib.request.urlopen(req) as resp:
+    with safe_urlopen(req) as resp:
         cookies = resp.headers.get_all("Set-Cookie")
         login_data = json.loads(resp.read().decode("utf-8"))
         csrf_token = login_data["data"]["csrf_token"]
@@ -40,7 +53,7 @@ def register_user(email: str, password: str = "StrongPassword123!"):
         headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
     )
     try:
-        with urllib.request.urlopen(req) as resp:
+        with safe_urlopen(req) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         if e.code == 409: # Already registered
@@ -61,7 +74,7 @@ def test_live_storage():
         f"{BASE_URL}/api/v1/documents/{prev_doc_id}/download",
         headers={"Cookie": owner_cookies, "User-Agent": "Mozilla/5.0"}
     )
-    with urllib.request.urlopen(dl_req) as resp:
+    with safe_urlopen(dl_req) as resp:
         assert resp.status == 200
         content = resp.read()
         print(f"[OK] Cross-invocation download for existing {prev_doc_id}: HTTP {resp.status}, {len(content)} bytes")
@@ -74,7 +87,7 @@ def test_live_storage():
         headers={"User-Agent": "Mozilla/5.0"}
     )
     try:
-        urllib.request.urlopen(unauth_req)
+        safe_urlopen(unauth_req)
         print("[FAIL] Unauthenticated request succeeded unexpectedly!")
     except urllib.error.HTTPError as e:
         print(f"[OK] Unauthenticated download blocked: HTTP {e.code} (Expected 401)")
@@ -91,7 +104,7 @@ def test_live_storage():
         headers={"Cookie": intruder_cookies, "User-Agent": "Mozilla/5.0"}
     )
     try:
-        urllib.request.urlopen(intruder_req)
+        safe_urlopen(intruder_req)
         print("[FAIL] Cross-user unauthorized download succeeded unexpectedly!")
     except urllib.error.HTTPError as e:
         print(f"[OK] Cross-user download blocked: HTTP {e.code} (Expected 403 Forbidden)")
@@ -104,7 +117,7 @@ def test_live_storage():
         headers={"Cookie": owner_cookies, "User-Agent": "Mozilla/5.0"}
     )
     try:
-        urllib.request.urlopen(missing_req)
+        safe_urlopen(missing_req)
         print("[FAIL] Missing document request succeeded unexpectedly!")
     except urllib.error.HTTPError as e:
         print(f"[OK] Non-existent document correctly returns: HTTP {e.code} (Expected 404 Not Found)")
@@ -129,7 +142,7 @@ def test_live_storage():
             "User-Agent": "Mozilla/5.0"
         }
     )
-    with urllib.request.urlopen(up_req) as up_resp:
+    with safe_urlopen(up_req) as up_resp:
         assert up_resp.status == 200
         up_data = json.loads(up_resp.read().decode("utf-8"))
         fresh_doc_id = up_data["data"]["id"]
@@ -143,21 +156,21 @@ def test_live_storage():
         f"{BASE_URL}/api/v1/documents/{fresh_doc_id}/download",
         headers={"Cookie": owner_cookies, "User-Agent": "Mozilla/5.0"}
     )
-    with urllib.request.urlopen(fresh_dl_req) as fresh_dl_resp:
+    with safe_urlopen(fresh_dl_req) as fresh_dl_resp:
         assert fresh_dl_resp.status == 200
         retrieved_bytes = fresh_dl_resp.read()
         print(f"[OK] Downloaded {len(retrieved_bytes)} bytes. Byte match: {retrieved_bytes == fresh_pdf_content}")
         assert retrieved_bytes == fresh_pdf_content
 
     # 8. Test Data Cleanup: Delete test documents from storage and DB
-    for doc_to_delete in [fresh_doc_id, prev_doc_id]:
+    for doc_to_delete in [fresh_doc_id]:
         del_req = urllib.request.Request(
             f"{BASE_URL}/api/v1/documents/{doc_to_delete}",
             method="DELETE",
             headers={"Cookie": owner_cookies, "X-CSRF-Token": owner_csrf, "User-Agent": "Mozilla/5.0"}
         )
         try:
-            with urllib.request.urlopen(del_req) as del_resp:
+            with safe_urlopen(del_req) as del_resp:
                 print(f"[OK] Cleaned up test document: {doc_to_delete} (HTTP {del_resp.status})")
         except urllib.error.HTTPError as e:
             print(f"[INFO] Document cleanup for {doc_to_delete}: HTTP {e.code}")
@@ -169,7 +182,7 @@ def test_live_storage():
         headers={"Cookie": intruder_cookies, "X-CSRF-Token": intruder_csrf, "User-Agent": "Mozilla/5.0"}
     )
     try:
-        with urllib.request.urlopen(intruder_del_req) as idel_resp:
+        with safe_urlopen(intruder_del_req) as idel_resp:
             print(f"[OK] Cleaned up synthetic probe account: {intruder_email} (HTTP {idel_resp.status})")
     except urllib.error.HTTPError as e:
         print(f"[INFO] Account cleanup for {intruder_email}: HTTP {e.code}")
