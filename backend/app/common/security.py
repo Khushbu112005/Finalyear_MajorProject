@@ -51,12 +51,12 @@ def get_current_user_context(request: Request) -> AuthContext:
         except Exception:
             raise UnauthorizedException("Invalid or expired authentication credentials.")
 
-    # Strict check: In production, unauthenticated requests with spoofed headers must NEVER be trusted
-    if settings.ENVIRONMENT == "production":
+    # Strict check: In production or when test headers are absent, unauthenticated requests are rejected
+    if settings.ENVIRONMENT == "production" or "X-User-Id" not in request.headers:
         raise UnauthorizedException("Authentication credentials required. Please provide a valid Bearer token or session cookie.")
 
     # Safe development/testing fallback for fixtures
-    user_id = request.headers.get("X-User-Id", "usr_civic_default_1")
+    user_id = request.headers.get("X-User-Id")
     email = request.headers.get("X-User-Email", "citizen@civicsphere.org")
     role = request.headers.get("X-User-Role", "citizen").lower()
     tenant_id = request.headers.get("X-Tenant-Id", None)

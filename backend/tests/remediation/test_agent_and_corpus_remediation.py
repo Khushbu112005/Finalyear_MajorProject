@@ -125,12 +125,13 @@ def test_live_007_graph_api_contract_compatibility(client):
     else:
         entity_id = next(iter(graph_repository._nodes.keys()))
 
-    res1 = client.get(f"/api/v1/knowledge/graph/neighborhood/{entity_id}?max_depth=2")
+    auth_headers = {"X-User-Id": "usr_test", "X-User-Role": "citizen"}
+    res1 = client.get(f"/api/v1/knowledge/graph/neighborhood/{entity_id}?max_depth=2", headers=auth_headers)
     assert res1.status_code == 200
     data1 = res1.json().get("data", {})
     assert "nodes" in data1 and "edges" in data1
     
-    res2 = client.get(f"/api/v1/knowledge/entities/{entity_id}/relationships?depth=2")
+    res2 = client.get(f"/api/v1/knowledge/entities/{entity_id}/relationships?depth=2", headers=auth_headers)
     assert res2.status_code == 200
     data2 = res2.json().get("data", {})
     assert "nodes" in data2 and "edges" in data2
