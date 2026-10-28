@@ -69,6 +69,7 @@ async def upload_and_process_document(
             file_size_bytes=len(file_bytes),
             status="READY",
             status_message=result.get("status_message", "Document processed successfully."),
+            is_malicious=result.get("is_malicious", False),
             analysis=result.get("evidence", {}),
         )
         db.add(doc)

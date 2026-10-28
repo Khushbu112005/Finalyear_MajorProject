@@ -3,7 +3,7 @@ SQLAlchemy Models for Intelligent Document Processing (Module D).
 Stores uploaded documents and their structured AI analysis.
 """
 
-from sqlalchemy import Column, String, Integer, DateTime, Text, JSON, ForeignKey
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, JSON, ForeignKey
 from sqlalchemy.sql import func
 import uuid
 from typing import Dict, Any
@@ -26,6 +26,7 @@ class DocumentModel(Base):
     # 7-Stage Pipeline Status: UPLOADED, VALIDATING, SECURITY_SCANNING, PROCESSING, ANALYZING, LINKING_KNOWLEDGE, READY, BLOCKED, FAILED
     status = Column(String(50), default="UPLOADED", nullable=False, index=True)
     status_message = Column(String(255), default="")
+    is_malicious = Column(Boolean, default=False, nullable=False)
     
     # Structured intelligence extracted by Module D
     analysis = Column(JSON, default=dict)
@@ -44,6 +45,7 @@ class DocumentModel(Base):
             "file_size_bytes": self.file_size_bytes,
             "status": self.status,
             "status_message": self.status_message or "",
+            "is_malicious": bool(self.is_malicious),
             "analysis": self.analysis or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

@@ -58,11 +58,18 @@ class DocumentProcessingPipeline:
                 status_code=400
             )
 
-        # Save to storage (with serverless fallback)
+        # Save to storage (enforcing durable storage in production)
         try:
             storage_path, generated_filename = await storage.save_file(file_bytes, original_filename)
         except Exception as e:
-            logger.warning(f"Primary storage backend failed ({e}); falling back to local serverless temp storage.")
+            if getattr(settings, "ENVIRONMENT", "").lower() == "production" and getattr(settings, "STORAGE_BACKEND", "").lower() == "supabase":
+                logger.error(f"Durable storage write failed in production: {e}")
+                raise CivicSphereException(
+                    code="DURABLE_STORAGE_WRITE_FAILED",
+                    message="Document could not be saved to durable cloud storage. Upload failed.",
+                    status_code=502
+                )
+            logger.warning(f"Primary storage backend failed ({e}); falling back to local non-durable temp storage for development/demo.")
             from backend.app.documents.services.storage import LocalStorageBackend
             storage_path, generated_filename = await LocalStorageBackend().save_file(file_bytes, original_filename)
 
@@ -91,6 +98,7 @@ class DocumentProcessingPipeline:
             "document_id": document_id,
             "status": "READY",
             "status_message": "Document processed and linked to knowledge graph.",
+            "is_malicious": False,
             "storage_path": storage_path,
             "evidence": evidence,
             "analysis": evidence,
