@@ -111,8 +111,10 @@ class LegalGuidanceEngine:
         non_indian_or_fictional = [
             "green card", "h1b", "h-1b", "us visa", "irs tax", "us immigration",
             "united states law", "uk immigration", "gdpr in europe", "sec filing",
-            "asteroid mining", "intergalactic", "alien citizenship", "space exploration and asteroid mining",
-            "capital of france", "make croissants", "croissant"
+            "asteroid mining", "asteroid", "martian", "mars", "intergalactic",
+            "alien citizenship", "space exploration and asteroid mining", "space exploration",
+            "lunar colony", "capital of france", "make croissants", "croissant",
+            "cryptocurrency mining", "quantum teleporter"
         ]
         if any(marker in q_lower for marker in non_indian_or_fictional):
             logger.info(f"Out-of-domain / fictional query detected: '{query}'")
