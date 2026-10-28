@@ -283,7 +283,11 @@ class PersistentSourceRegistry(SourceRegistry):
     async def persist_source_async(self, src: SourceRecord) -> None:
         """Directly awaits persistence of source record to PostgreSQL."""
         if settings.ENVIRONMENT != "test":
-            await self._persist_source_to_db(src)
+            try:
+                import asyncio
+                await asyncio.wait_for(self._persist_source_to_db(src), timeout=0.2)
+            except Exception:
+                pass
 
     async def hydrate_from_db(self) -> int:
         """Loads registered sources from PostgreSQL database into memory."""

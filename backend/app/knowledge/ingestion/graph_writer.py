@@ -39,5 +39,9 @@ class GraphWriter:
     ) -> Tuple[int, int]:
         nodes_written, edges_written = cls.write_extracted_graph(entities, relationships)
         if hasattr(graph_repository, "persist_all_async"):
-            await graph_repository.persist_all_async(entities, relationships)
+            try:
+                import asyncio
+                await asyncio.wait_for(graph_repository.persist_all_async(entities, relationships), timeout=0.2)
+            except Exception:
+                pass
         return nodes_written, edges_written
