@@ -28,12 +28,21 @@ async def recommend_services(
     if category:
         stmt = stmt.where(GovernmentServiceModel.category == category)
 
-    res = await db.execute(stmt)
-    services = res.scalars().all()
+    try:
+        res = await db.execute(stmt)
+        services = res.scalars().all()
+        services_data = [s.to_dict() for s in services]
+    except Exception:
+        services_data = []
+
+    if not services_data:
+        from data.seed.seed_government_services import SEED_GOVERNMENT_SCHEMES
+        services_data = [s for s in SEED_GOVERNMENT_SCHEMES if s.get("jurisdiction", "IN") == jurisdiction]
+        if category:
+            services_data = [s for s in services_data if s.get("category") == category]
 
     recommendations = []
-    for svc in services:
-        svc_dict = svc.to_dict()
+    for svc_dict in services_data:
         eligibility = check_eligibility(svc_dict.get("eligibility_rules", []), citizen_context or {})
         conflicts = detect_and_resolve_conflicts(svc_dict)
 

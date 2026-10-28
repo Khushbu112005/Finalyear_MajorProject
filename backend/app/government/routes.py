@@ -16,6 +16,7 @@ from backend.app.government.models import GovernmentServiceModel
 from backend.app.government.services.ai_service import GovernmentAIService
 from backend.app.government.services.eligibility import check_eligibility
 from backend.app.government.services.recommendation import recommend_services
+from data.seed.seed_government_services import SEED_GOVERNMENT_SCHEMES
 
 router = APIRouter(prefix="/government", tags=["Government Service Navigator"])
 
@@ -67,20 +68,20 @@ async def list_services(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Returns catalog of verified government services."""
-    stmt = select(GovernmentServiceModel).where(GovernmentServiceModel.jurisdiction == jurisdiction)
-    if category:
-        stmt = stmt.where(GovernmentServiceModel.category == category)
+    try:
+        stmt = select(GovernmentServiceModel).where(GovernmentServiceModel.jurisdiction == jurisdiction)
+        if category:
+            stmt = stmt.where(GovernmentServiceModel.category == category)
+        res = await db.execute(stmt)
+        services = [s.to_dict() for s in res.scalars().all()]
+    except Exception:
+        services = []
 
-    res = await db.execute(stmt)
-    services = [s.to_dict() for s in res.scalars().all()]
     if not services:
-        try:
-            from data.seed.seed_government_services import seed_government_services
-            await seed_government_services(db)
-            res = await db.execute(stmt)
-            services = [s.to_dict() for s in res.scalars().all()]
-        except Exception:
-            pass
+        services = [s for s in SEED_GOVERNMENT_SCHEMES if s.get("jurisdiction", "IN") == jurisdiction]
+        if category:
+            services = [s for s in services if s.get("category") == category]
+
     return ApiResponse(data=services, confidence=1.0)
 
 
@@ -90,11 +91,19 @@ async def get_service_details(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Fetches full procedural steps, documents, and eligibility rules for a specific service."""
-    res = await db.execute(select(GovernmentServiceModel).where(GovernmentServiceModel.service_id == service_id))
-    svc = res.scalar_one_or_none()
-    if not svc:
-        raise CivicSphereException(code="SERVICE_NOT_FOUND", message=f"Service '{service_id}' not found.", status_code=404)
-    return ApiResponse(data=svc.to_dict(), confidence=1.0)
+    try:
+        res = await db.execute(select(GovernmentServiceModel).where(GovernmentServiceModel.service_id == service_id))
+        svc = res.scalar_one_or_none()
+        if svc:
+            return ApiResponse(data=svc.to_dict(), confidence=1.0)
+    except Exception:
+        pass
+
+    for s in SEED_GOVERNMENT_SCHEMES:
+        if s["service_id"] == service_id:
+            return ApiResponse(data=s, confidence=1.0)
+
+    raise CivicSphereException(code="SERVICE_NOT_FOUND", message=f"Service '{service_id}' not found.", status_code=404)
 
 
 @router.post("/check-eligibility", response_model=ApiResponse[Dict[str, Any]])
@@ -103,10 +112,22 @@ async def check_service_eligibility(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Checks citizen eligibility for a specific government service."""
-    res = await db.execute(select(GovernmentServiceModel).where(GovernmentServiceModel.service_id == payload.service_id))
-    svc = res.scalar_one_or_none()
-    if not svc:
-        raise CivicSphereException(code="SERVICE_NOT_FOUND", message=f"Service '{payload.service_id}' not found.", status_code=404)
+    rules = []
+    try:
+        res = await db.execute(select(GovernmentServiceModel).where(GovernmentServiceModel.service_id == payload.service_id))
+        svc = res.scalar_one_or_none()
+        if svc:
+            rules = svc.eligibility_rules or []
+    except Exception:
+        pass
 
-    eligibility = check_eligibility(svc.eligibility_rules or [], payload.citizen_context)
+    if not rules:
+        for s in SEED_GOVERNMENT_SCHEMES:
+            if s["service_id"] == payload.service_id:
+                rules = s.get("eligibility_rules", [])
+                break
+        else:
+            raise CivicSphereException(code="SERVICE_NOT_FOUND", message=f"Service '{payload.service_id}' not found.", status_code=404)
+
+    eligibility = check_eligibility(rules, payload.citizen_context)
     return ApiResponse(data={"service_id": payload.service_id, "eligibility": eligibility}, confidence=1.0)
