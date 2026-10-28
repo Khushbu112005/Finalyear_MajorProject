@@ -20,8 +20,8 @@ This report establishes the verified state of the system based on automated regr
 | Evaluation Dimension | Release Gate Verdict | Operating Scope & Boundary Conditions |
 | :--- | :---: | :--- |
 | **Academic Major Project Defense** | **PASSED (UNCONDITIONAL)** | Full architecture demonstrated: 8 statutory acts indexed, 12 verified government schemes, tamper-evident audit logs, citizen case management, multi-agent reasoning timeline, CSRF defenses, and zero frontend crashes across 31 static routes. |
-| **Live Controlled Demonstration** | **PASSED (WITH HONEST DISCLOSURES)** | Live Vercel frontend and backend operational. Real multi-step agent reasoning loop executes against in-memory knowledge base. Disclose that cloud document persistence uses serverless `/tmp` fallback and LLM inference uses deterministic grounded synthesis when external API keys are omitted. |
-| **Commercial Multi-Tenant Production** | **NO-GO / CONDITIONAL (BLOCKED ON SECRETS)** | Core application logic and security perimeters are production-hardened. Production launch is **NO-GO** until two external third-party credentials are provisioned in Vercel backend environment settings: (1) Supabase Cloud Storage bucket credentials for durable cross-lambda document storage, and (2) Google Gemini API Key for neural LLM generation. |
+| **Live Controlled Demonstration** | **PASSED (WITH HONEST DISCLOSURES)** | Live Vercel frontend and backend operational. Real multi-step agent reasoning loop executes against verified statutory sources. Disclose that neural LLM generation runs in deterministic grounded synthesis mode due to unset external Gemini credentials. Durable Supabase Cloud Storage is fully operational. |
+| **Commercial Multi-Tenant Production** | **CONDITIONAL (BLOCKED ON GEMINI_API_KEY)** | Core application logic, security perimeters, and durable cloud document storage are production-hardened and verified live in Supabase. Commercial launch is **CONDITIONAL** solely on provisioning the Google Gemini API Key (`GEMINI_API_KEY`) in Vercel backend environment settings for neural LLM generation. |
 
 ---
 
@@ -32,6 +32,8 @@ This report establishes the verified state of the system based on automated regr
 - **Current Branch**: `main`
 - **Origin Remote**: `https://github.com/Khushbu112005/Finalyear_MajorProject.git`
 - **Commit History**:
+  - `9f48964` — *fix(storage): add is_malicious to DocumentModel and enforce durable Supabase storage in production*
+  - `dc4fe5d` — *fix(blockers): implement secure document download route, observable persistence, and reconcile test suite*
   - `e378f51` — *docs(audit): finalize release gate report and reconcile findings matrix*
   - `e7f7b78` — *fix(retrieval): require substantive keyword matches and expand out-of-domain fiction query gates*
   - `9fa6bc3` — *fix(knowledge): isolate DB persistence with background task and strict timeouts to prevent serverless lockup*
@@ -47,9 +49,10 @@ This report establishes the verified state of the system based on automated regr
   - Region: `iad1` (Washington, D.C.) / Edge Gateway `bom1` (Mumbai)
   - Live Health Probe: `HTTP 200 OK` (`{"status": "HEALTHY", "version": "1.0.0"}`)
   - Live Authenticated Traversal: `HTTP 200 OK` on `/api/v1/knowledge/graph/neighborhood/{entity_id}`
+  - Live Durable Document Storage: Verified upload to `supabase://civicsphere-demo-documents/` and authorized download across separate invocations.
 - **Frontend Target (Canonical Team Deployment)**: `https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app`
   - Platform: Next.js 16.4.2 App Router (Turbopack / React 19)
-  - Root Directory: `apps/web` (updated in Vercel project configuration)
+  - Root Directory: `apps/web` (configured in Vercel project settings)
   - Live Status: `HTTP 200 OK` on `/`, `/legal/acts`, `/robots.txt`, `/sitemap.xml`
 - **Frontend Short Alias**: `https://civicsphere-web.vercel.app`
   - Live Status: Returns `HTTP 404 (X-Vercel-Error: NOT_FOUND)` on Vercel edge due to scoped-team routing policy. Marked **BLOCKED (ROUTING / DNS POLICY)**.
@@ -63,7 +66,7 @@ This report establishes the verified state of the system based on automated regr
 | Finding ID | Severity | Original Issue & Expected Behaviour | Remediated Implementation & Source Files | Automated Regression Test | Live Verification Status | Final Finding Status | Remaining Acceptance Criteria |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **LIVE-001** | CRITICAL | Missing server-side CSRF validation on mutating endpoints with `SameSite=None` session cookies. Expected: HTTP 403 on missing/invalid CSRF tokens. | `backend/app/main.py` (`csrf_protection_middleware`), `backend/app/auth/routes.py` (`SameSite=Lax`), `backend/app/auth/dependencies.py` | `backend/tests/security/test_csrf.py` (5 tests passing) | Verified live: POST without `X-CSRF-Token` returns HTTP 403 `CSRF_VALIDATION_FAILED`. Programmatic Bearer tokens bypass CSRF. | **VERIFIED FIXED** | None. Fully hardened. |
-| **LIVE-002** | CRITICAL | Document upload endpoint crashed with HTTP 500 in prod due to unhandled local disk writes. | `backend/app/documents/services/storage.py` (`LocalStorageBackend` serverless `/tmp` fallback), `backend/app/documents/routes.py` (`GET /{id}/download`) | `backend/tests/unit/test_storage.py` (9 passed), `backend/tests/api/test_document_download.py` (2 passed) | Verified: Synthetic PDF upload -> metadata persistence -> authorized byte download -> unauthorized rejection (403). | **PARTIALLY FIXED** *(Non-Durable)* | Local serverless `/tmp` fallback is verified. Commercial durable persistence requires provisioning Supabase Cloud Storage bucket credentials in Vercel backend settings. |
+| **LIVE-002** | CRITICAL | Document upload endpoint crashed with HTTP 500 in prod due to unhandled local disk writes. | `backend/app/documents/models.py` (`is_malicious`), `backend/app/documents/routes.py` (`GET /{id}/download`), `backend/app/documents/services/pipeline.py` (enforces durable Supabase storage in production), `backend/app/documents/services/storage.py` (`SupabaseStorageBackend`) | `backend/tests/unit/test_storage.py` (9 passed), `backend/tests/api/test_document_download.py` (2 passed) | Verified live in production: Upload streams to `supabase://civicsphere-demo-documents/`. Download returns exact byte match in separate invocation. Unauthenticated returns 401; cross-user returns 403; non-existent returns 404. | **VERIFIED FIXED** | None. Durable cloud storage operational and verified live. |
 | **LIVE-003** | HIGH | Multi-agent assistant (`/agents`) returned simulated `MockLLM` string with 0 tool calls. Expected: Dynamic multi-step reasoning. | `backend/app/agents/core/base_agent.py`, `backend/app/agents/services/agent_runner.py` (multi-step perception-thought-action loop executing >= 2 tool steps with real evidence retrieval). | `backend/tests/remediation/test_agent_and_corpus_remediation.py::test_live_003_004_agent_multistep_execution` | Verified: Agent chat performs dynamic statutory tool lookups and evidence synthesis. | **VERIFIED FIXED** | Multi-step agent loop verified in source and live backend. Full dynamic neural generation requires live `GEMINI_API_KEY`. |
 | **LIVE-004** | HIGH | Missing Gemini API key in production intelligent document processing returned generic "Mock Document" with API key risk flag. | `backend/app/document_processing/services/classification_service.py` (implemented authentic deterministic regex/keyword pattern extractors, structural risk analysis, and explicit metadata tagging). | `backend/tests/test_document_processing.py` (6 tests passing) | Verified: Classification extracts authentic document types, authorities, dates, and risk flags without crashing. | **VERIFIED FIXED** | Rule-based fallback verified. Neural multi-modal document intelligence requires live `GEMINI_API_KEY`. |
 | **LIVE-005** | HIGH | Legal retrieval engine forced 95-98% confidence RTI citations on fictional (Asteroid Mining Act) and foreign (US Green Card) queries. | `backend/app/knowledge/retrieval/keyword.py` (substantive keyword matching, generic legal stopwords de-emphasized), `backend/app/legal/services/legal_engine.py` (Gate 2 out-of-domain classifier and circuit breaker). | `backend/tests/remediation/test_agent_and_corpus_remediation.py::test_live_005_out_of_domain_insufficient_evidence` | Verified live on Vercel: Asteroid query & US Green Card query return `confidence: 0.0`, `citations: 0`, `fail_safe_state: INSUFFICIENT_EVIDENCE`. | **VERIFIED FIXED** | None. Fully verified on production deployment. |
@@ -91,10 +94,12 @@ This report establishes the verified state of the system based on automated regr
 - **Document Access Control**: `GET /api/v1/documents/{id}/download` strictly enforces user ownership via `check_ownership()`. Unauthorized access by another citizen returns HTTP 403 Forbidden; unauthenticated access returns HTTP 401 Unauthorized.
 - **Security Headers**: Standard defense-in-depth headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`) are injected on every response via `SecurityHeadersMiddleware`.
 
-### Gate 2: Document Processing & Storage Architecture — CONDITIONAL (PASS FOR SERVERLESS / BLOCKED FOR CLOUD)
-- **Serverless Resilience**: Replaced unhandled synchronous filesystem writes with `LocalStorageBackend` pointing to `tempfile.gettempdir()/civicsphere_uploads`. Document upload succeeds with HTTP 200 and passes 9 automated unit tests in `backend/tests/unit/test_storage.py` and 2 integration tests in `backend/tests/api/test_document_download.py`.
-- **Heuristic Parsing**: Authentic regex and keyword pattern extractors parse legal notices, extract critical dates, issuing authorities, and calculate procedural risk scores when neural API keys are not present.
-- **Commercial Production Condition**: Because Vercel serverless containers are ephemeral across lambdas, durable multi-tenant commercial deployment requires adding `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET` to production environment variables.
+### Gate 2: Document Processing & Storage Architecture — PASSED (DURABLE CLOUD STORAGE OPERATIONAL)
+- **Durable Cloud Storage**: The live backend is connected directly to Supabase Cloud Storage bucket `civicsphere-demo-documents`. Files uploaded via `POST /api/v1/documents/upload` are persisted to `supabase://civicsphere-demo-documents/{filename}`.
+- **Database Schema Conformance**: Aligned SQLAlchemy `DocumentModel` with PostgreSQL migration schema by adding `is_malicious = Column(Boolean, default=False, nullable=False)`, eliminating `NotNullViolationError`.
+- **Cross-Invocation Durability**: Proven via live probes against `https://civicsphere-backend.vercel.app`. Uploaded PDFs remain available and downloadable across distinct serverless lambdas and separate execution processes.
+- **Strict Error Handling**: In production with `STORAGE_BACKEND="supabase"`, cloud storage write failures raise `DURABLE_STORAGE_WRITE_FAILED` (HTTP 502) rather than masquerading as success through silent `/tmp` fallback.
+- **Heuristic Document Intelligence**: Authentic regex and keyword pattern extractors parse legal notices, extract critical dates, issuing authorities, and calculate procedural risk scores when neural API keys are not present.
 
 ### Gate 3: AI Inference, Knowledge Retrieval & Citation Grounding — PASSED (WITH HONEST DISCLOSURES)
 - **Grounded Lexical Retrieval**: BM25 keyword retrieval was hardened in `backend/app/knowledge/retrieval/keyword.py` by requiring matches against substantive query tokens and de-emphasizing structural boilerplate (`section`, `act`, `under`).
@@ -198,6 +203,20 @@ $ curl -s -o /dev/null -w "%{http_code}\n" https://civicsphere-web-devanshparags
 200
 $ curl -s -o /dev/null -w "%{http_code}\n" https://civicsphere-web-devanshparagsavla1709-6335s-projects.vercel.app/sitemap.xml
 200
+
+# 9. Live Production Durable Storage & Access Control Audit (scripts/verify_live_production_storage.py)
+=== CIVICSPHERE AI: PRODUCTION STORAGE DURABILITY & ACCESS CONTROL AUDIT ===
+[OK] Logged in as Owner: probe_8b0c44@civicsphere.org
+[OK] Cross-invocation download for existing doc_e43e305ea609: HTTP 200, 76 bytes
+[OK] Unauthenticated download blocked: HTTP 401 (Expected 401)
+[OK] Logged in as Intruder: intruder_c042d2@civicsphere.org
+[OK] Cross-user download blocked: HTTP 403 (Expected 403 Forbidden)
+[OK] Non-existent document correctly returns: HTTP 404 (Expected 404 Not Found)
+[OK] Fresh Document Uploaded: doc_ae95c8020c0e
+[OK] Durable Storage URI: supabase://civicsphere-demo-documents/doc_598aafc728b24cc5a9760773abadf29f.pdf
+[OK] Downloaded 116 bytes. Byte match: True
+
+>>> ALL 7 PRODUCTION STORAGE SECURITY & PERSISTENCE CHECKS PASSED <<<
 ```
 
 ---
@@ -206,4 +225,7 @@ $ curl -s -o /dev/null -w "%{http_code}\n" https://civicsphere-web-devanshparags
 
 CivicSphere AI has resolved all reproducible defects from the live black-box audit. The system achieves complete functional and security conformance within its current architectural scope.
 
-The platform is certified as **PASSED for Academic Defense** and **PASSED for Controlled Demonstrations**. The path to commercial production is documented with unambiguous conditional criteria (provisioning cloud storage and LLM API keys).
+The platform is certified as:
+- **Academic Major Project Defense**: **PASSED (UNCONDITIONAL)**
+- **Controlled Demonstrations**: **PASSED (WITH HONEST DISCLOSURES)**
+- **Commercial Multi-Tenant Production**: **CONDITIONAL (BLOCKED ON GEMINI_API_KEY)** (Durable cloud storage is operational and verified; production launch requires provisioning Google Gemini API Key for neural inference).
