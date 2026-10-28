@@ -17,8 +17,6 @@ from backend.app.common.errors import CivicSphereException
 from backend.app.auth.models import UserModel
 from backend.app.auth.dependencies import get_current_user, check_ownership
 from backend.app.documents.models import DocumentModel
-from backend.app.document_processing.services.ocr_service import OCRService
-from backend.app.document_processing.services.classification_service import ClassificationService
 
 router = APIRouter(prefix="/documents", tags=["Intelligent Document Processing"])
 logger = logging.getLogger("civicsphere.documents.api")
@@ -36,41 +34,59 @@ async def upload_and_process_document(
 ):
     """
     Uploads a document and executes the full 7-stage processing pipeline.
+    Handles serverless environments, cloud fallback, and database persistence safely.
     """
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise CivicSphereException(code="INVALID_EXTENSION", message="Only PDF documents are supported.", status_code=400)
+
     file_bytes = await file.read()
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise CivicSphereException(code="FILE_TOO_LARGE", message="File exceeds 10MB limit.", status_code=400)
+    if not file_bytes.startswith(PDF_MAGIC_BYTES):
+        raise CivicSphereException(code="INVALID_MAGIC_BYTES", message="File signature is not a valid PDF.", status_code=400)
+
     doc_id = f"doc_{uuid.uuid4().hex[:12]}"
 
-    from backend.app.documents.services.pipeline import DocumentProcessingPipeline
-    result = await DocumentProcessingPipeline.process_document_pipeline(
-        document_id=doc_id,
-        file_bytes=file_bytes,
-        original_filename=file.filename or "document.pdf",
-        user_id=current_user.id,
-        case_id=case_id,
-        db=db,
-    )
+    try:
+        from backend.app.documents.services.pipeline import DocumentProcessingPipeline
+        result = await DocumentProcessingPipeline.process_document_pipeline(
+            document_id=doc_id,
+            file_bytes=file_bytes,
+            original_filename=file.filename or "document.pdf",
+            user_id=current_user.id,
+            case_id=case_id,
+            db=db,
+        )
 
-    # Persist in relational database
-    doc = DocumentModel(
-        id=doc_id,
-        user_id=current_user.id,
-        case_id=case_id,
-        original_filename=file.filename or "document.pdf",
-        storage_path=result["storage_path"],
-        mime_type=file.content_type or "application/pdf",
-        file_size_bytes=len(file_bytes),
-        status="READY",
-        status_message=result["status_message"],
-        analysis=result["evidence"],
-    )
-    db.add(doc)
-    await db.commit()
-    await db.refresh(doc)
+        doc = DocumentModel(
+            id=doc_id,
+            user_id=current_user.id,
+            case_id=case_id,
+            original_filename=file.filename or "document.pdf",
+            storage_path=result.get("storage_path", ""),
+            mime_type=file.content_type or "application/pdf",
+            file_size_bytes=len(file_bytes),
+            status="READY",
+            status_message=result.get("status_message", "Document processed successfully."),
+            analysis=result.get("evidence", {}),
+        )
+        db.add(doc)
+        await db.commit()
+        await db.refresh(doc)
 
-    return ApiResponse(
-        data=doc.to_dict(),
-        confidence=float(result["evidence"].get("confidence", 0.95)),
-    )
+        return ApiResponse(
+            data=doc.to_dict(),
+            confidence=float(result.get("evidence", {}).get("confidence", 0.95)),
+        )
+    except CivicSphereException:
+        raise
+    except Exception as exc:
+        logger.error(f"Document upload processing failed: {type(exc).__name__}: {exc}")
+        raise CivicSphereException(
+            code="DOCUMENT_PROCESSING_FAILED",
+            message=f"Failed to process document: {str(exc)}",
+            status_code=422
+        )
 
 
 @router.get("", response_model=ApiResponse[List[Dict[str, Any]]])

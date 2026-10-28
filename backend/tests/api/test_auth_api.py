@@ -67,7 +67,9 @@ def test_totp_mfa_lifecycle():
     cookies = reg_resp.cookies
 
     # 1. Setup MFA
-    setup_resp = client.post("/api/v1/auth/mfa/setup", cookies=cookies)
+    csrf_token = cookies.get("csrf_token")
+    headers = {"X-CSRF-Token": csrf_token} if csrf_token else {}
+    setup_resp = client.post("/api/v1/auth/mfa/setup", cookies=cookies, headers=headers)
     assert setup_resp.status_code == 200
     setup_data = setup_resp.json()["data"]
     secret = setup_data["secret"]

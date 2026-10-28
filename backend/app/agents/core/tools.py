@@ -99,31 +99,32 @@ class ToolRegistry:
                 sanitized_result = f"<data_boundary source='{tool_name}'>\n{result}\n</data_boundary>"
 
             return AgentToolCall(
+                agent_name=agent_name,
                 tool_name=tool_name,
                 parameters=parameters,
+                authorized=True,
                 result=sanitized_result if isinstance(sanitized_result, dict) else {"output": sanitized_result},
-                execution_time_ms=round(duration_ms, 2),
-                status="SUCCESS"
+                latency_ms=round(duration_ms, 2),
             )
         except asyncio.TimeoutError:
             duration_ms = (time.perf_counter() - start_time) * 1000.0
             logger.error(f"Tool '{tool_name}' timed out after {tool.timeout_seconds}s")
             return AgentToolCall(
+                agent_name=agent_name,
                 tool_name=tool_name,
                 parameters=parameters,
-                result={"error": f"Tool execution timed out after {tool.timeout_seconds}s"},
-                execution_time_ms=round(duration_ms, 2),
-                status="ERROR"
+                error=f"Tool execution timed out after {tool.timeout_seconds}s",
+                latency_ms=round(duration_ms, 2),
             )
         except Exception as e:
             duration_ms = (time.perf_counter() - start_time) * 1000.0
             logger.error(f"Error executing tool '{tool_name}': {e}")
             return AgentToolCall(
+                agent_name=agent_name,
                 tool_name=tool_name,
                 parameters=parameters,
-                result={"error": str(e)},
-                execution_time_ms=round(duration_ms, 2),
-                status="ERROR"
+                error=str(e),
+                latency_ms=round(duration_ms, 2),
             )
 
     def _register_default_tools(self):

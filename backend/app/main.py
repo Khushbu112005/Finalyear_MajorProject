@@ -9,6 +9,9 @@ from contextlib import asynccontextmanager
 import uuid
 import time
 import logging
+import secrets
+from urllib.parse import urlparse
+from starlette.responses import JSONResponse
 
 import asyncio
 from packages.schemas.contracts import ApiResponse
@@ -64,6 +67,15 @@ async def lifespan(app: FastAPI):
             await seed_knowledge_base()
         except Exception as e:
             logger.warning(f"Knowledge base auto-seeding notice: {e}")
+
+    # Auto-seed verified government schemes (LIVE-006)
+    try:
+        from backend.app.common.database import AsyncSessionLocal
+        from data.seed.seed_government_services import seed_government_services
+        async with AsyncSessionLocal() as session:
+            await seed_government_services(session)
+    except Exception as e:
+        logger.warning(f"Government schemes auto-seeding notice: {e}")
     logger.info(f"Knowledge Engine ready. Currently holding {len(source_registry.list_sources())} registered sources, {len(graph_repository._nodes)} graph nodes, {len(vector_store._vectors)} vector records.")
     yield
     logger.info("Shutting down CivicSphere Unified Backend...")
@@ -91,7 +103,67 @@ app.add_middleware(
 app.add_middleware(RateLimitMiddleware, default_capacity=200, default_refill_rate=5.0)
 
 
-# Security Headers & Correlation Middleware
+# Server-Side CSRF Protection Middleware (LIVE-001)
+@app.middleware("http")
+async def csrf_protection_middleware(request: Request, call_next):
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        has_session_cookie = bool(request.cookies.get("access_token"))
+        exempt_paths = {
+            f"{settings.API_PREFIX}/auth/login",
+            f"{settings.API_PREFIX}/auth/register",
+            f"{settings.API_PREFIX}/auth/logout",
+            f"{settings.API_PREFIX}/auth/mfa/verify",
+            "/auth/login",
+            "/auth/register",
+            "/auth/logout",
+            "/docs",
+            "/openapi.json",
+        }
+        if has_session_cookie and request.url.path not in exempt_paths:
+            # Validate Origin / Referer against allowed CORS origins
+            origin = request.headers.get("origin") or request.headers.get("referer")
+            if origin:
+                parsed_origin = urlparse(origin)
+                origin_base = f"{parsed_origin.scheme}://{parsed_origin.netloc}"
+                allowed_origins = set(settings.ALLOWED_ORIGINS)
+                is_allowed = (
+                    origin_base in allowed_origins or
+                    parsed_origin.hostname in ("127.0.0.1", "localhost", "civicsphere-web.vercel.app") or
+                    "*" in allowed_origins
+                )
+                if not is_allowed:
+                    logger.warning(f"[CSRF] Origin check failed for: {origin_base}")
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "success": False,
+                            "error": {
+                                "code": "CSRF_ORIGIN_DENIED",
+                                "message": "Cross-origin state-changing request denied by CSRF policy."
+                            }
+                        }
+                    )
+
+            # Double-submit token validation
+            csrf_header = request.headers.get("x-csrf-token")
+            csrf_cookie = request.cookies.get("csrf_token")
+            if not csrf_header or not csrf_cookie or not secrets.compare_digest(csrf_header, csrf_cookie):
+                logger.warning(f"[CSRF] State-changing request to {request.url.path} rejected: token mismatch or missing.")
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "success": False,
+                        "error": {
+                            "code": "CSRF_VALIDATION_FAILED",
+                            "message": "CSRF verification failed: Missing or invalid X-CSRF-Token."
+                        }
+                    }
+                )
+
+    return await call_next(request)
+
+
+# Security Headers & Correlation Middleware (LIVE-011)
 @app.middleware("http")
 async def security_and_correlation_middleware(request: Request, call_next):
     req_id = request.headers.get("X-Request-Id", str(uuid.uuid4()))
@@ -106,6 +178,9 @@ async def security_and_correlation_middleware(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
     return response
 
 

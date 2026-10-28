@@ -106,14 +106,19 @@ export interface LegalGuidance {
 }
 
 export interface LegalAct {
-  id: string;
+  id?: string;
   act_id?: string;
+  source_id?: string;
   title: string;
   name?: string;
   year?: number;
   jurisdiction?: string;
   description?: string;
   sections_count?: number;
+  publisher?: string;
+  official_url?: string;
+  source_type?: string;
+  verification_status?: string;
 }
 
 export interface ProcedureStep {

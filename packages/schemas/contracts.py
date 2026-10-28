@@ -210,7 +210,7 @@ class AgentRun(BaseModel):
 # --- Module A: Legal Guidance Contracts ---
 
 class LegalQuery(BaseModel):
-    query: str
+    query: str = Field(..., min_length=3, max_length=2000, description="Plain language citizen legal query")
     jurisdiction: str = "IN"
     user_context: Dict[str, Any] = Field(default_factory=dict)
     case_id: Optional[str] = None
@@ -230,6 +230,7 @@ class LegalAnswer(BaseModel):
     what_it_generally_means: str = Field(description="Plain-language explanation of the legal concept")
     how_it_may_relate: str = Field(description="Contextual connection to the citizen's specific situation")
     what_you_may_consider_doing: List[str] = Field(default_factory=list, description="Actionable options to consider")
+    how_it_may_help_or_steps: str = Field(default="", description="Procedural action steps or procedural guidance")
     evidence_that_may_help: List[str] = Field(default_factory=list, description="Documentation/evidence citizen might gather")
     where_to_go: List[str] = Field(default_factory=list, description="Relevant authorities, tribunals, portals, or desks")
     sources: List[Citation] = Field(default_factory=list, description="Verified citations with provenance")

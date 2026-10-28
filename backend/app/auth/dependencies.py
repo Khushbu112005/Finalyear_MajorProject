@@ -16,6 +16,10 @@ from backend.app.common.errors import CivicSphereException
 from backend.app.auth.models import UserModel, UserRole
 from backend.app.auth.services import decode_access_token
 
+import secrets
+from urllib.parse import urlparse
+from backend.app.common.config import settings
+
 logger = logging.getLogger("civicsphere.auth.deps")
 
 
@@ -129,18 +133,53 @@ async def verify_csrf_token(
 ) -> None:
     """
     Validates CSRF double-submit token on state-changing methods (POST, PUT, DELETE, PATCH).
+    Enforces secret comparison and allowed origin verification on cookie-authenticated requests.
     """
     if request.method in ("POST", "PUT", "DELETE", "PATCH"):
-        # Allow test client or programmatic bearer token auth to bypass if no browser cookie was submitted
-        if not request.cookies.get("access_token") and request.headers.get("Authorization"):
-            return
-        if not request.cookies.get("access_token") and request.headers.get("X-User-Id"):
+        # Check if browser cookie-based session is present
+        has_session_cookie = bool(request.cookies.get("access_token"))
+        if not has_session_cookie:
+            # Allow programmatic bearer token auth or test fixtures if no browser session cookie was submitted
+            if request.headers.get("Authorization", "").startswith("Bearer "):
+                return
+            if request.headers.get("X-User-Id"):
+                return
             return
 
-        if not csrf_token_header or not csrf_token_cookie or csrf_token_header != csrf_token_cookie:
+        # Exempt public onboarding routes where session cookie is not yet active
+        exempt_paths = {
+            f"{settings.API_PREFIX}/auth/login",
+            f"{settings.API_PREFIX}/auth/register",
+            f"{settings.API_PREFIX}/auth/mfa/verify",
+            "/auth/login",
+            "/auth/register",
+        }
+        if request.url.path in exempt_paths:
+            return
+
+        # Origin / Referer validation for cookie-authenticated requests
+        origin = request.headers.get("Origin") or request.headers.get("Referer")
+        if origin:
+            parsed_origin = urlparse(origin)
+            origin_base = f"{parsed_origin.scheme}://{parsed_origin.netloc}"
+            allowed_origins = set(settings.ALLOWED_ORIGINS)
+            is_allowed = (
+                origin_base in allowed_origins or
+                parsed_origin.hostname in ("127.0.0.1", "localhost", "civicsphere-web.vercel.app") or
+                "*" in allowed_origins
+            )
+            if not is_allowed:
+                logger.warning(f"[CSRF] Origin check failed for origin: {origin_base}")
+                raise CivicSphereException(
+                    code="CSRF_ORIGIN_DENIED",
+                    message="Cross-origin state-changing request denied by CSRF policy.",
+                    status_code=403
+                )
+
+        if not csrf_token_header or not csrf_token_cookie or not secrets.compare_digest(csrf_token_header, csrf_token_cookie):
             logger.warning("[CSRF] State-changing request rejected due to CSRF token mismatch or absence.")
             raise CivicSphereException(
                 code="CSRF_VALIDATION_FAILED",
-                message="CSRF verification failed. Request rejected.",
+                message="CSRF verification failed: Missing or invalid X-CSRF-Token header.",
                 status_code=403
             )

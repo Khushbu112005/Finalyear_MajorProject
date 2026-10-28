@@ -33,6 +33,15 @@ def setup_test_knowledge_base():
     # Initialize SQL database tables and seed verified sources synchronously
     asyncio.run(init_models())
     asyncio.run(seed_knowledge_base())
+
+    from backend.app.common.database import AsyncSessionLocal
+    from data.seed.seed_government_services import seed_government_services
+
+    async def _seed_gov():
+        async with AsyncSessionLocal() as session:
+            await seed_government_services(session)
+
+    asyncio.run(_seed_gov())
     yield
 
 

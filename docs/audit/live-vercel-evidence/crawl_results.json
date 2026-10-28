@@ -1,0 +1,164 @@
+[
+  {
+    "route": "/",
+    "url": "https://civicsphere-web.vercel.app/",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\homepage.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/legal",
+    "url": "https://civicsphere-web.vercel.app/legal",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\legal.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/legal/acts",
+    "url": "https://civicsphere-web.vercel.app/legal/acts",
+    "status": 404,
+    "title": "HTTP 404",
+    "html_file": null,
+    "is_404": true,
+    "scripts_count": 0
+  },
+  {
+    "route": "/government",
+    "url": "https://civicsphere-web.vercel.app/government",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\government.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/cases",
+    "url": "https://civicsphere-web.vercel.app/cases",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\cases.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/documents",
+    "url": "https://civicsphere-web.vercel.app/documents",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\documents.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/knowledge",
+    "url": "https://civicsphere-web.vercel.app/knowledge",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\knowledge.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/agents",
+    "url": "https://civicsphere-web.vercel.app/agents",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\agents.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/admin",
+    "url": "https://civicsphere-web.vercel.app/admin",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\admin.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/admin/audit",
+    "url": "https://civicsphere-web.vercel.app/admin/audit",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\admin_audit.html",
+    "is_404": true,
+    "scripts_count": 7
+  },
+  {
+    "route": "/admin/evaluation",
+    "url": "https://civicsphere-web.vercel.app/admin/evaluation",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\admin_evaluation.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/admin/knowledge",
+    "url": "https://civicsphere-web.vercel.app/admin/knowledge",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\admin_knowledge.html",
+    "is_404": true,
+    "scripts_count": 7
+  },
+  {
+    "route": "/admin/security",
+    "url": "https://civicsphere-web.vercel.app/admin/security",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\admin_security.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/admin/sources",
+    "url": "https://civicsphere-web.vercel.app/admin/sources",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\admin_sources.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/auth/login",
+    "url": "https://civicsphere-web.vercel.app/auth/login",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\auth_login.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/auth/register",
+    "url": "https://civicsphere-web.vercel.app/auth/register",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\auth_register.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/profile",
+    "url": "https://civicsphere-web.vercel.app/profile",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\profile.html",
+    "is_404": true,
+    "scripts_count": 8
+  },
+  {
+    "route": "/settings",
+    "url": "https://civicsphere-web.vercel.app/settings",
+    "status": 404,
+    "title": "CivicSphere AI \u2014 National Civic &amp; Legal Intelligence",
+    "html_file": "docs/audit/live-vercel-evidence/routes\\settings.html",
+    "is_404": true,
+    "scripts_count": 8
+  }
+]

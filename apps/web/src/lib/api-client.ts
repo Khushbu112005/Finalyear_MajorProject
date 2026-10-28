@@ -120,6 +120,8 @@ export const api = {
       }),
     listActs: () =>
       request<LegalAct[]>('/legal/acts'),
+    acts: () =>
+      request<LegalAct[]>('/legal/acts'),
   },
 
   // 3. Government Schemes & Navigation (Module B)

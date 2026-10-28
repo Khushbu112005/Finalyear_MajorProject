@@ -6,6 +6,7 @@ Uses LLM provider abstraction to extract citizen intent, required parameters, an
 from typing import Dict, Any, List, Optional
 import json
 import logging
+import re
 
 from backend.app.common.providers.llm import get_llm_provider
 
@@ -41,6 +42,16 @@ class GovernmentAIService:
         problem_text: str,
         citizen_context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        supplied_keys = {k.lower() for k in (citizen_context or {}).keys()}
+
+        def is_supplied(param: str) -> bool:
+            p_clean = param.lower().replace(" ", "_").replace("-", "_")
+            for k in supplied_keys:
+                k_clean = k.lower().replace(" ", "_").replace("-", "_")
+                if p_clean == k_clean or p_clean in k_clean or k_clean in p_clean:
+                    return True
+            return False
+
         llm = get_llm_provider()
         prompt = _ANALYSIS_PROMPT.format(
             problem_text=problem_text,
@@ -49,23 +60,31 @@ class GovernmentAIService:
 
         try:
             raw = await llm.generate(prompt=prompt, system_prompt="You are a government services reasoning assistant.")
-            # Parse JSON from response
-            import re
             cleaned = re.sub(r"^```(?:json)?\s*\n?", "", raw.strip())
             cleaned = re.sub(r"\n?```\s*$", "", cleaned).strip()
             match = re.search(r"\{[\s\S]*\}", cleaned)
             if match:
-                return json.loads(match.group(0))
+                parsed = json.loads(match.group(0))
+                if "missing_parameters" in parsed and isinstance(parsed["missing_parameters"], list):
+                    parsed["missing_parameters"] = [p for p in parsed["missing_parameters"] if not is_supplied(p)]
+                if "extracted_parameters" not in parsed or not parsed["extracted_parameters"]:
+                    parsed["extracted_parameters"] = dict(citizen_context or {})
+                else:
+                    parsed["extracted_parameters"].update(citizen_context or {})
+                return parsed
         except Exception as e:
             logger.warning(f"AI analysis parsing fallback: {e}")
 
-        # Fallback deterministic analysis
+        # Deterministic analysis honoring supplied citizen_context
+        candidate_missing = ["state_of_residence", "annual_income", "caste_category", "landholding_acres"]
+        missing_params = [p for p in candidate_missing if not is_supplied(p)]
+
         return {
             "detected_intent": f"Assistance regarding: {problem_text[:80]}...",
             "category": "General Welfare & Services",
             "jurisdiction": "IN",
-            "extracted_parameters": citizen_context or {},
-            "missing_parameters": ["annual_income", "state_of_residence"],
+            "extracted_parameters": dict(citizen_context or {}),
+            "missing_parameters": missing_params,
             "suggested_actions": [
                 "Verify required identity and residence documents",
                 "Apply through official government single-window portal"
@@ -79,4 +98,3 @@ async def analyze_civic_problem(
     jurisdiction: str = "IN"
 ) -> Dict[str, Any]:
     return await GovernmentAIService.analyze_problem(problem_text, citizen_context)
-

@@ -1,6 +1,6 @@
 """
 Object Storage Abstraction for CivicSphere Documents.
-Supports local filesystem storage and Supabase Storage (private bucket),
+Supports local filesystem storage (serverless-safe) and Supabase Storage (private bucket),
 generating secure UUID filenames to prevent path traversal.
 """
 
@@ -10,6 +10,7 @@ import os
 import uuid
 import logging
 import mimetypes
+import tempfile
 import httpx
 
 from backend.app.common.config import settings
@@ -38,32 +39,63 @@ class StorageBackend(ABC):
 
 
 class LocalStorageBackend(StorageBackend):
-    """Local filesystem storage backend."""
+    """Local filesystem storage backend with automatic serverless writeable directory fallback."""
 
-    def __init__(self, base_dir: str = "./uploads"):
-        self.base_dir = os.path.abspath(base_dir)
-        os.makedirs(self.base_dir, exist_ok=True)
+    def __init__(self, base_dir: Optional[str] = None):
+        target = base_dir or getattr(settings, "STORAGE_LOCAL_PATH", "./uploads")
+        try:
+            abs_dir = os.path.abspath(target)
+            os.makedirs(abs_dir, exist_ok=True)
+            test_file = os.path.join(abs_dir, f".test_{uuid.uuid4().hex[:6]}")
+            with open(test_file, "w") as f:
+                f.write("ok")
+            os.remove(test_file)
+            self.base_dir = abs_dir
+        except (OSError, PermissionError) as e:
+            fallback_dir = os.path.join(tempfile.gettempdir(), "civicsphere_uploads")
+            os.makedirs(fallback_dir, exist_ok=True)
+            self.base_dir = fallback_dir
+            logger.info(f"Target directory '{target}' is not writable ({e}); defaulted to '{fallback_dir}'")
 
     async def save_file(self, file_bytes: bytes, original_filename: str) -> Tuple[str, str]:
-        ext = os.path.splitext(original_filename)[1].lower()
+        ext = os.path.splitext(original_filename)[1].lower() or ".pdf"
         generated_name = f"doc_{uuid.uuid4().hex}{ext}"
         storage_path = os.path.join(self.base_dir, generated_name)
-        
-        with open(storage_path, "wb") as f:
-            f.write(file_bytes)
-            
+
+        try:
+            with open(storage_path, "wb") as f:
+                f.write(file_bytes)
+        except (OSError, PermissionError):
+            fallback_dir = os.path.join(tempfile.gettempdir(), "civicsphere_uploads")
+            os.makedirs(fallback_dir, exist_ok=True)
+            storage_path = os.path.join(fallback_dir, generated_name)
+            with open(storage_path, "wb") as f:
+                f.write(file_bytes)
+            self.base_dir = fallback_dir
+
         logger.info(f"Stored file {original_filename} locally as {generated_name}")
         return storage_path, generated_name
 
     async def get_file(self, storage_path: str) -> bytes:
         if not os.path.exists(storage_path):
-            raise FileNotFoundError(f"Storage path {storage_path} not found.")
+            # Check temp fallback
+            filename = os.path.basename(storage_path)
+            temp_path = os.path.join(tempfile.gettempdir(), "civicsphere_uploads", filename)
+            if os.path.exists(temp_path):
+                storage_path = temp_path
+            else:
+                raise FileNotFoundError(f"Storage path {storage_path} not found.")
         with open(storage_path, "rb") as f:
             return f.read()
 
     async def delete_file(self, storage_path: str) -> bool:
         if os.path.exists(storage_path):
             os.remove(storage_path)
+            return True
+        filename = os.path.basename(storage_path)
+        temp_path = os.path.join(tempfile.gettempdir(), "civicsphere_uploads", filename)
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
             return True
         return False
 
@@ -72,8 +104,7 @@ class SupabaseStorageBackend(StorageBackend):
     """
     Production Supabase Storage Provider.
     Interacts asynchronously via HTTPX with Supabase Storage REST API v1.
-    Uses authenticated service-role credentials to store, retrieve, and delete
-    documents within a private bucket, generating secure UUID filenames.
+    Includes graceful serverless fallback if cloud storage is unconfigured or unavailable.
     """
 
     def __init__(
@@ -83,15 +114,18 @@ class SupabaseStorageBackend(StorageBackend):
         bucket_name: Optional[str] = None,
         timeout: float = 30.0,
     ):
-        self.supabase_url = (supabase_url or getattr(settings, "SUPABASE_URL", "") or "").rstrip("/")
-        self.service_role_key = service_role_key or getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", "") or ""
+        raw_url = supabase_url if supabase_url is not None else getattr(settings, "SUPABASE_URL", "")
+        raw_key = service_role_key if service_role_key is not None else getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", "")
+        if not raw_url:
+            raise ValueError("SUPABASE_URL is required for SupabaseStorageBackend")
+        if not raw_key:
+            raise ValueError("SUPABASE_SERVICE_ROLE_KEY is required for SupabaseStorageBackend")
+        self.supabase_url = raw_url.rstrip("/")
+        self.service_role_key = raw_key
         self.bucket_name = bucket_name or getattr(settings, "SUPABASE_STORAGE_BUCKET", "civicsphere-demo-documents")
         self.timeout = timeout
-
-        if not self.supabase_url:
-            raise ValueError("SupabaseStorageBackend requires SUPABASE_URL to be set.")
-        if not self.service_role_key:
-            raise ValueError("SupabaseStorageBackend requires SUPABASE_SERVICE_ROLE_KEY to be set.")
+        self.is_configured = True
+        self._fallback_backend = LocalStorageBackend()
 
     def _headers(self, content_type: Optional[str] = None) -> Dict[str, str]:
         headers = {
@@ -103,10 +137,6 @@ class SupabaseStorageBackend(StorageBackend):
         return headers
 
     def _clean_path(self, storage_path: str) -> Tuple[str, str]:
-        """
-        Parses bucket and object path from storage_path.
-        Supports 'supabase://bucket/filename.pdf' or 'bucket/filename.pdf' or 'filename.pdf'.
-        """
         path = storage_path
         if path.startswith("supabase://"):
             path = path[len("supabase://"):]
@@ -118,6 +148,10 @@ class SupabaseStorageBackend(StorageBackend):
         return self.bucket_name, path.lstrip("/")
 
     async def save_file(self, file_bytes: bytes, original_filename: str) -> Tuple[str, str]:
+        if not self.is_configured:
+            logger.warning("Supabase storage credentials unconfigured; storing in serverless temp directory.")
+            return await self._fallback_backend.save_file(file_bytes, original_filename)
+
         ext = os.path.splitext(original_filename)[1].lower() or ".pdf"
         generated_name = f"doc_{uuid.uuid4().hex}{ext}"
         content_type, _ = mimetypes.guess_type(original_filename)
@@ -132,18 +166,18 @@ class SupabaseStorageBackend(StorageBackend):
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.post(upload_url, headers=headers, content=file_bytes)
                 if resp.status_code >= 400:
-                    logger.error(f"Supabase storage upload failed: HTTP {resp.status_code} - {resp.text}")
                     raise CivicSphereException(
                         code="STORAGE_UPLOAD_ERROR",
-                        message=f"Failed to upload document to storage: HTTP {resp.status_code}",
-                        status_code=502,
+                        message=f"Failed to upload document to Supabase Storage: HTTP {resp.status_code}",
+                        status_code=502
                     )
-        except httpx.RequestError as exc:
-            logger.error(f"Network error during Supabase storage upload: {type(exc).__name__}")
+        except CivicSphereException:
+            raise
+        except Exception as exc:
             raise CivicSphereException(
-                code="STORAGE_NETWORK_ERROR",
-                message="Document storage service is currently unreachable.",
-                status_code=503,
+                code="STORAGE_UPLOAD_ERROR",
+                message=f"Supabase storage connection failed: {type(exc).__name__}",
+                status_code=502
             )
 
         storage_path = f"supabase://{self.bucket_name}/{generated_name}"
@@ -151,6 +185,9 @@ class SupabaseStorageBackend(StorageBackend):
         return storage_path, generated_name
 
     async def get_file(self, storage_path: str) -> bytes:
+        if not self.is_configured or not storage_path.startswith("supabase://"):
+            return await self._fallback_backend.get_file(storage_path)
+
         bucket, filename = self._clean_path(storage_path)
         download_url = f"{self.supabase_url}/storage/v1/object/authenticated/{bucket}/{filename}"
         headers = self._headers()
@@ -165,22 +202,19 @@ class SupabaseStorageBackend(StorageBackend):
                 if resp.status_code == 404:
                     raise FileNotFoundError(f"Storage object {storage_path} not found.")
                 if resp.status_code >= 400:
-                    logger.error(f"Supabase storage download failed: HTTP {resp.status_code}")
                     raise CivicSphereException(
                         code="STORAGE_DOWNLOAD_ERROR",
                         message=f"Failed to retrieve document from storage: HTTP {resp.status_code}",
                         status_code=502,
                     )
                 return resp.content
-        except httpx.RequestError as exc:
-            logger.error(f"Network error during Supabase storage download: {type(exc).__name__}")
-            raise CivicSphereException(
-                code="STORAGE_NETWORK_ERROR",
-                message="Document storage service is currently unreachable.",
-                status_code=503,
-            )
+        except (httpx.RequestError, FileNotFoundError):
+            return await self._fallback_backend.get_file(storage_path)
 
     async def delete_file(self, storage_path: str) -> bool:
+        if not self.is_configured or not storage_path.startswith("supabase://"):
+            return await self._fallback_backend.delete_file(storage_path)
+
         bucket, filename = self._clean_path(storage_path)
         delete_url = f"{self.supabase_url}/storage/v1/object/{bucket}"
         headers = self._headers("application/json")
@@ -188,22 +222,22 @@ class SupabaseStorageBackend(StorageBackend):
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.request("DELETE", delete_url, headers=headers, json={"prefixes": [filename]})
-                if resp.status_code >= 400:
-                    logger.warning(f"Supabase storage delete failed: HTTP {resp.status_code}")
-                    return False
-                return True
-        except httpx.RequestError as exc:
-            logger.error(f"Network error during Supabase storage delete: {type(exc).__name__}")
-            return False
+                return resp.status_code < 400
+        except Exception:
+            return await self._fallback_backend.delete_file(storage_path)
 
 
 def get_storage_backend() -> StorageBackend:
     """Factory to get configured storage backend based on environment settings."""
     storage_type = getattr(settings, "STORAGE_BACKEND", "local").lower()
     if storage_type == "supabase":
-        return SupabaseStorageBackend(
-            supabase_url=getattr(settings, "SUPABASE_URL", None),
-            service_role_key=getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", None),
-            bucket_name=getattr(settings, "SUPABASE_STORAGE_BUCKET", "civicsphere-demo-documents"),
-        )
-    return LocalStorageBackend(base_dir=getattr(settings, "STORAGE_LOCAL_PATH", "./uploads"))
+        supabase_url = getattr(settings, "SUPABASE_URL", None)
+        service_role_key = getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", None)
+        if supabase_url and service_role_key:
+            return SupabaseStorageBackend(
+                supabase_url=supabase_url,
+                service_role_key=service_role_key,
+                bucket_name=getattr(settings, "SUPABASE_STORAGE_BUCKET", "civicsphere-demo-documents"),
+            )
+        logger.warning("STORAGE_BACKEND set to 'supabase' but credentials not configured; defaulting to serverless-safe local storage.")
+    return LocalStorageBackend()

@@ -1,0 +1,111 @@
+{
+  "frontend_headers": {
+    "Accept-Ranges": "bytes",
+    "Access-Control-Allow-Origin": "*",
+    "Age": "48536",
+    "Cache-Control": "public, max-age=0, must-revalidate",
+    "Content-Disposition": "inline",
+    "Content-Length": "40964",
+    "Content-Type": "text/html; charset=utf-8",
+    "Date": "Wed, 28 Oct 2026 08:55:42 GMT",
+    "Etag": "\"907de02df2d00fa3402acd5bd5f49494\"",
+    "Server": "Vercel",
+    "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+    "Vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "X-Matched-Path": "/",
+    "X-Nextjs-Prerender": "1",
+    "X-Nextjs-Stale-Time": "300",
+    "X-Vercel-Cache": "HIT",
+    "X-Vercel-Id": "bom1::6wdvw-1793177742022-af078ccbf015",
+    "Connection": "close"
+  },
+  "backend_headers": {
+    "Age": "0",
+    "Cache-Control": "public, max-age=0, must-revalidate",
+    "Content-Length": "91",
+    "Content-Type": "application/json",
+    "Date": "Wed, 28 Oct 2026 08:55:28 GMT",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Server": "Vercel",
+    "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+    "Vary": "Origin",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-Process-Time-Ms": "1.14",
+    "X-Request-Id": "6402a8c7-fcac-4d2c-9e64-6835e3ebaed1",
+    "X-Vercel-Cache": "MISS",
+    "X-Vercel-Id": "bom1::iad1::hm86p-1793177742121-636de8b8a1de",
+    "Connection": "close"
+  },
+  "cors_test": {
+    "origin_tested": "https://malicious-attacker.com",
+    "access_control_allow_origin": null,
+    "access_control_allow_credentials": null
+  },
+  "csrf_missing_result": {
+    "status": 200,
+    "body": {
+      "success": true,
+      "request_id": "c9e4cac7-6ca1-406a-ab66-2b3b434b4bd3",
+      "data": {
+        "id": "ae091e23-2fae-4f85-8cdf-b908db34257f",
+        "title": "CSRF Bypass Test Case",
+        "description": "Testing if state-changing POST succeeds without CSRF header",
+        "citizen_id": "642cb3fa-8489-47e0-b8e1-9601bb8c2735",
+        "counsel_id": null,
+        "category": "Property & Land",
+        "status": "OPEN",
+        "priority": "LOW",
+        "deadline": null,
+        "location": "Mumbai",
+        "court_reference": "",
+        "counsel_notes": "",
+        "legal_findings": [],
+        "government_services": [],
+        "deadlines": [],
+        "timeline": [],
+        "sources": [],
+        "processing_history": [],
+        "created_at": "2026-10-28T08:55:45.557335+00:00",
+        "updated_at": "2026-10-28T08:55:45.557335+00:00"
+      },
+      "sources": [],
+      "confidence": 1.0,
+      "warnings": [],
+      "timestamp": "2026-10-28T08:55:47.339662+00:00"
+    }
+  },
+  "csrf_invalid_result": {
+    "status": 200,
+    "body": {
+      "success": true,
+      "request_id": "4e94718e-fedc-4998-a407-ac506137c3f5",
+      "data": {
+        "id": "522950d4-910a-4afb-ac30-eba7d4fc0110",
+        "title": "CSRF Bypass Test Case",
+        "description": "Testing if state-changing POST succeeds without CSRF header",
+        "citizen_id": "642cb3fa-8489-47e0-b8e1-9601bb8c2735",
+        "counsel_id": null,
+        "category": "Property & Land",
+        "status": "OPEN",
+        "priority": "LOW",
+        "deadline": null,
+        "location": "Mumbai",
+        "court_reference": "",
+        "counsel_notes": "",
+        "legal_findings": [],
+        "government_services": [],
+        "deadlines": [],
+        "timeline": [],
+        "sources": [],
+        "processing_history": [],
+        "created_at": "2026-10-28T08:55:49.648970+00:00",
+        "updated_at": "2026-10-28T08:55:49.648970+00:00"
+      },
+      "sources": [],
+      "confidence": 1.0,
+      "warnings": [],
+      "timestamp": "2026-10-28T08:55:51.420515+00:00"
+    }
+  }
+}

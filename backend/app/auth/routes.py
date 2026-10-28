@@ -72,10 +72,11 @@ class UpdateProfileRequest(BaseModel):
 
 
 def _set_auth_cookies(response: Response, token: str) -> str:
-    """Sets secure httpOnly cookie and returns a CSRF token with cross-origin support."""
+    """Sets secure httpOnly cookie and returns a CSRF token with SameSite=Lax protection."""
     csrf_token = secrets.token_hex(32)
     is_prod = settings.ENVIRONMENT == "production"
-    samesite_val = "none" if is_prod else "lax"
+    # SameSite=Lax provides robust defense against cross-site request forgery
+    samesite_val = "lax"
     secure_val = is_prod
 
     response.set_cookie(
@@ -239,7 +240,7 @@ async def disable_mfa(
 async def logout(response: Response):
     """Clears authentication session cookies."""
     is_prod = settings.ENVIRONMENT == "production"
-    samesite_val = "none" if is_prod else "lax"
+    samesite_val = "lax"
     secure_val = is_prod
     response.delete_cookie(key="access_token", path="/", samesite=samesite_val, secure=secure_val)
     response.delete_cookie(key="csrf_token", path="/", samesite=samesite_val, secure=secure_val)

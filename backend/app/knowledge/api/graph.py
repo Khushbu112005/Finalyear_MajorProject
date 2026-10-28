@@ -39,21 +39,35 @@ async def get_graph_entity(
     )
 
 
+@router.get("/graph/neighborhood/{entity_id}", response_model=ApiResponse[Dict[str, Any]])
 @router.get("/entities/{entity_id}/relationships", response_model=ApiResponse[Dict[str, Any]])
-async def get_entity_relationships(
+async def get_entity_neighborhood_relationships(
     entity_id: str,
-    depth: int = Query(default=1, ge=1, le=2, description="Bounded traversal depth"),
-    limit_per_node: int = Query(default=8, ge=1, le=15),
+    max_depth: Optional[int] = Query(default=None, alias="max_depth", ge=1, le=3),
+    depth: Optional[int] = Query(default=1, ge=1, le=3, description="Bounded traversal depth"),
+    limit_per_node: int = Query(default=8, ge=1, le=25),
     auth: AuthContext = Depends(get_current_user_context)
 ) -> ApiResponse[Dict[str, Any]]:
-    """Explores the bounded neighborhood surrounding a graph entity."""
+    """
+    Explores the bounded neighborhood surrounding a graph entity.
+    Satisfies both /graph/neighborhood/{id} and /entities/{id}/relationships contracts.
+    """
+    effective_depth = max_depth if max_depth is not None else (depth or 1)
+    
+    # Try direct lookup, or lookup by entity name
+    try:
+        graph_repository.get_entity(entity_id)
+    except Exception:
+        matches = graph_repository.find_entities_by_name(entity_id, limit=1)
+        if matches:
+            entity_id = matches[0].entity_id
+
     exploration = GraphTraversalService.explore_entity(
         entity_id=entity_id,
-        depth=depth,
+        depth=effective_depth,
         limit_per_node=limit_per_node
     )
 
-    # Authorization filtering
     auth_entities = GraphAuthorizationPolicy.filter_entities(
         [exploration.selected_entity] + exploration.neighborhood_entities,
         auth
@@ -61,7 +75,34 @@ async def get_entity_relationships(
     auth_ids = {e.entity_id for e in auth_entities}
     auth_rels = GraphAuthorizationPolicy.filter_relationships(exploration.relationships, auth_ids)
 
+    # Format nodes and edges for frontend GraphNeighborhood
+    formatted_nodes = [
+        {
+            "id": e.entity_id,
+            "name": e.name,
+            "type": e.entity_type.value if hasattr(e.entity_type, "value") else str(e.entity_type),
+            "label": e.name,
+            "jurisdiction": e.jurisdiction,
+            "attributes": e.attributes,
+        }
+        for e in auth_entities
+    ]
+
+    formatted_edges = [
+        {
+            "id": r.relationship_id,
+            "source": r.source_entity_id,
+            "target": r.target_entity_id,
+            "type": r.relation_type.value if hasattr(r.relation_type, "value") else str(r.relation_type),
+            "label": r.relation_type.value if hasattr(r.relation_type, "value") else str(r.relation_type),
+            "confidence": r.confidence,
+        }
+        for r in auth_rels
+    ]
+
     result_data = {
+        "nodes": formatted_nodes,
+        "edges": formatted_edges,
         "selected_entity": exploration.selected_entity.model_dump(),
         "neighborhood": [e.model_dump() for e in auth_entities if e.entity_id != entity_id],
         "relationships": [r.model_dump() for r in auth_rels],

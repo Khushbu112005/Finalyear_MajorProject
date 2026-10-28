@@ -7,6 +7,7 @@ import {
   Trash2
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { AuthGuard } from "@/components/AuthGuard";
 import type { CaseItem } from "@/lib/types";
 
 export default function CaseWorkspacePage() {
@@ -81,6 +82,7 @@ export default function CaseWorkspacePage() {
   };
 
   return (
+    <AuthGuard>
     <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="flex items-center justify-between gap-4 mb-8">
@@ -300,5 +302,6 @@ export default function CaseWorkspacePage() {
         </div>
       )}
     </div>
+    </AuthGuard>
   );
 }

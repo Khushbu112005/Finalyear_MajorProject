@@ -58,8 +58,13 @@ class DocumentProcessingPipeline:
                 status_code=400
             )
 
-        # Save to storage
-        storage_path, generated_filename = await storage.save_file(file_bytes, original_filename)
+        # Save to storage (with serverless fallback)
+        try:
+            storage_path, generated_filename = await storage.save_file(file_bytes, original_filename)
+        except Exception as e:
+            logger.warning(f"Primary storage backend failed ({e}); falling back to local serverless temp storage.")
+            from backend.app.documents.services.storage import LocalStorageBackend
+            storage_path, generated_filename = await LocalStorageBackend().save_file(file_bytes, original_filename)
 
         # Stage 4: PROCESSING (OCR)
         logger.info(f"Pipeline Stage 4 [PROCESSING]: extracting raw text via OCR")

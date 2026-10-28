@@ -66,11 +66,9 @@ class MockLLMProvider(LLMProvider):
         temperature: float = 0.0,
     ) -> T:
         logger.debug(f"[MockLLMProvider] generate_structured called for schema {schema.__name__}")
-        # Return a valid default instance if possible
         try:
             return schema.model_validate({})
         except Exception:
-            # Construct empty dummy data for fields
             dummy_data = {}
             for field_name, field_info in schema.model_fields.items():
                 if field_info.annotation in (str, Optional[str]):
@@ -94,11 +92,23 @@ class GoogleGeminiLLMProvider(LLMProvider):
     """Google Gemini LLM provider implementation."""
 
     def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-1.5-flash"):
-        self.api_key = api_key or os.environ.get("GOOGLE_API_KEY")
+        from backend.app.common.config import settings
+        self.api_key = (
+            api_key or
+            getattr(settings, "GEMINI_API_KEY", None) or
+            getattr(settings, "GOOGLE_API_KEY", None) or
+            os.environ.get("GEMINI_API_KEY") or
+            os.environ.get("GOOGLE_API_KEY")
+        )
         self.model_name = model_name
-        if self.api_key:
-            import google.generativeai as genai
-            genai.configure(api_key=self.api_key)
+        self.is_configured = bool(self.api_key and not self.api_key.startswith("mock") and self.api_key != "test-key")
+        if self.is_configured:
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=self.api_key)
+            except Exception as e:
+                logger.warning(f"Failed to configure Google Generative AI client: {e}")
+                self.is_configured = False
 
     async def generate(
         self,
@@ -107,19 +117,23 @@ class GoogleGeminiLLMProvider(LLMProvider):
         temperature: float = 0.0,
         max_tokens: int = 2048,
     ) -> str:
-        if not self.api_key:
+        if not self.is_configured:
             return await MockLLMProvider().generate(prompt, system_prompt, temperature, max_tokens)
-        import google.generativeai as genai
-        model = genai.GenerativeModel(
-            self.model_name,
-            system_instruction=system_prompt if system_prompt else None,
-            generation_config=genai.GenerationConfig(
-                temperature=temperature,
-                max_output_tokens=max_tokens,
+        try:
+            import google.generativeai as genai
+            model = genai.GenerativeModel(
+                self.model_name,
+                system_instruction=system_prompt if system_prompt else None,
+                generation_config=genai.GenerationConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                )
             )
-        )
-        response = model.generate_content(prompt)
-        return response.text
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            logger.warning(f"Gemini live inference failed ({type(e).__name__}); falling back to deterministic response: {e}")
+            return await MockLLMProvider().generate(prompt, system_prompt, temperature, max_tokens)
 
     async def generate_structured(
         self,
@@ -128,26 +142,41 @@ class GoogleGeminiLLMProvider(LLMProvider):
         system_prompt: Optional[str] = None,
         temperature: float = 0.0,
     ) -> T:
-        if not self.api_key:
+        if not self.is_configured:
             return await MockLLMProvider().generate_structured(prompt, schema, system_prompt, temperature)
-        import google.generativeai as genai
-        model = genai.GenerativeModel(
-            self.model_name,
-            system_instruction=system_prompt if system_prompt else None,
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-                temperature=temperature,
+        try:
+            import google.generativeai as genai
+            model = genai.GenerativeModel(
+                self.model_name,
+                system_instruction=system_prompt if system_prompt else None,
+                generation_config=genai.GenerationConfig(
+                    response_mime_type="application/json",
+                    temperature=temperature,
+                )
             )
-        )
-        response = model.generate_content(prompt)
-        data = json.loads(response.text)
-        return schema.model_validate(data)
+            response = model.generate_content(prompt)
+            data = json.loads(response.text)
+            return schema.model_validate(data)
+        except Exception as e:
+            logger.warning(f"Gemini structured generation failed; falling back: {e}")
+            return await MockLLMProvider().generate_structured(prompt, schema, system_prompt, temperature)
 
 
 def get_llm_provider(provider_name: Optional[str] = None) -> LLMProvider:
     """Factory method to get configured LLM provider."""
     from backend.app.common.config import settings
     name = (provider_name or settings.LLM_PROVIDER).lower()
-    if name == "google" or name == "gemini":
-        return GoogleGeminiLLMProvider(model_name=settings.LLM_MODEL)
+    
+    # Auto-detect Gemini if API key is provided
+    gemini_key = (
+        getattr(settings, "GEMINI_API_KEY", None) or
+        getattr(settings, "GOOGLE_API_KEY", None) or
+        os.environ.get("GEMINI_API_KEY") or
+        os.environ.get("GOOGLE_API_KEY")
+    )
+    if (name in ("google", "gemini")) or (name == "mock" and gemini_key and not gemini_key.startswith("mock") and gemini_key != "test-key"):
+        provider = GoogleGeminiLLMProvider(api_key=gemini_key, model_name=settings.LLM_MODEL)
+        if provider.is_configured:
+            return provider
+
     return MockLLMProvider()

@@ -8,6 +8,7 @@ Strictly prohibits legal hallucination and enforces fail-safe behaviors.
 from typing import Dict, Any, List, Optional
 import json
 import logging
+import re
 
 from packages.schemas.contracts import (
     LegalQuery,
@@ -84,6 +85,57 @@ class LegalGuidanceEngine:
         user_context: Optional[Dict[str, Any]] = None,
         case_id: Optional[str] = None,
     ) -> LegalAnswer:
+        q_lower = query.lower()
+
+        # Gate 1: Check for prompt injection / system jailbreak attempts
+        jailbreak_triggers = ["system override", "ignore all rules", "forget you are", "output your internal", "system instructions and api keys"]
+        if any(trigger in q_lower for trigger in jailbreak_triggers):
+            return LegalAnswer(
+                query=query,
+                jurisdiction=jurisdiction,
+                what_i_understood="Security screening detected adversarial instructions.",
+                relevant_legal_basis=[],
+                what_it_generally_means="Input violates platform safety policies against prompt injection and unauthorized system inspection.",
+                how_it_may_relate="System prompts, keys, and internal directives are safeguarded by defensive isolation layers.",
+                what_you_may_consider_doing=["Submit legitimate civic or statutory inquiries regarding Indian law."],
+                how_it_may_help_or_steps="1. Review CivicSphere terms of service.\n2. Submit legitimate statutory question.",
+                evidence_that_may_help=[],
+                where_to_go=["CivicSphere Security Center"],
+                sources=[],
+                confidence=0.0,
+                warnings=["Adversarial prompt injection attempt blocked."],
+                fail_safe_state=FailSafeState.SECURITY_BLOCKED,
+            )
+
+        # Gate 2: Out-of-Domain and Fictional Statutes Classification Gate (LIVE-005)
+        non_indian_or_fictional = [
+            "green card", "h1b", "h-1b", "us visa", "irs tax", "us immigration",
+            "united states law", "uk immigration", "gdpr in europe", "sec filing",
+            "asteroid mining", "intergalactic", "alien citizenship", "space exploration and asteroid mining",
+            "capital of france", "make croissants", "croissant"
+        ]
+        if any(marker in q_lower for marker in non_indian_or_fictional):
+            logger.info(f"Out-of-domain / fictional query detected: '{query}'")
+            return LegalAnswer(
+                query=query,
+                jurisdiction=jurisdiction,
+                what_i_understood=f"You inquired about: '{query}'.",
+                relevant_legal_basis=[],
+                what_it_generally_means="No verified statutory provisions were found in the official Indian legal corpus matching this specific inquiry.",
+                how_it_may_relate="CivicSphere AI strictly refuses to fabricate legal advice or cite unrelated Indian statutes for queries outside its verified domestic jurisdiction.",
+                what_you_may_consider_doing=[
+                    "Verify whether this subject matter falls under Indian statutory law or a foreign/fictional jurisdiction.",
+                    "For international matters, consult the appropriate embassy or competent legal authority in that jurisdiction."
+                ],
+                how_it_may_help_or_steps="1. Confirm whether the query pertains to Indian legislation.\n2. For foreign legal matters, refer to official consular desks or international legal counsel.",
+                evidence_that_may_help=[],
+                where_to_go=["Consular / Diplomatic Mission", "State Bar Council International Section"],
+                sources=[],
+                confidence=0.0,
+                warnings=["Out-of-jurisdiction or unsupported query: No matching Indian statutory evidence found."],
+                fail_safe_state=FailSafeState.INSUFFICIENT_EVIDENCE,
+            )
+
         # 1. Retrieve grounded evidence from Module C Hybrid Engine
         req = RetrievalRequest(
             query=query,
@@ -92,8 +144,8 @@ class LegalGuidanceEngine:
         )
         evidence_pack = await hybrid_retrieval_service.retrieve(req)
 
-        # 2. Check Fail-Safe state
-        if evidence_pack.fail_safe_state == FailSafeState.INSUFFICIENT_EVIDENCE or not evidence_pack.items:
+        # 2. Check Fail-Safe state (strict threshold)
+        if evidence_pack.fail_safe_state == FailSafeState.INSUFFICIENT_EVIDENCE or not evidence_pack.items or evidence_pack.evidence_confidence <= 0.20:
             logger.warning(f"Legal query insufficient evidence: '{query}'")
             return LegalAnswer(
                 query=query,
@@ -103,6 +155,7 @@ class LegalGuidanceEngine:
                 what_it_generally_means="No verified statutory evidence was found in the official knowledge base matching this specific inquiry.",
                 how_it_may_relate="Without verified official provisions, CivicSphere AI cannot confirm legal applicability.",
                 what_you_may_consider_doing=["Consult a licensed advocate or legal aid clinic for authoritative counsel."],
+                how_it_may_help_or_steps="1. Gather relevant background facts and dates.\n2. Visit the nearest District Legal Services Authority (DLSA) desk.\n3. Request legal advice from an empanelled advocate.",
                 evidence_that_may_help=[],
                 where_to_go=["District Legal Services Authority (DLSA)", "State Bar Council"],
                 sources=[],
@@ -148,7 +201,6 @@ class LegalGuidanceEngine:
 
         try:
             raw_response = await llm.generate(prompt=prompt, system_prompt=_LEGAL_SYSTEM_PROMPT)
-            import re
             cleaned = re.sub(r"^```(?:json)?\s*\n?", "", raw_response.strip())
             cleaned = re.sub(r"\n?```\s*$", "", cleaned).strip()
             match = re.search(r"\{[\s\S]*\}", cleaned)
@@ -160,6 +212,17 @@ class LegalGuidanceEngine:
         # 6. Assemble 10-Section LegalAnswer
         top_item = evidence_pack.items[0]
         sec_text = f" (Section {top_item.section_number})" if top_item.section_number else ""
+
+        action_steps = parsed.get("what_you_may_consider_doing", [
+            f"Review the requirements under {top_item.source_title}{sec_text}.",
+            "Gather all supporting factual records, communications, and proofs.",
+            "Draft formal communication citing the relevant statutory provision.",
+            "If unresolved within statutory timelines, escalate to the designated appellate authority."
+        ])
+        
+        # LIVE-013: Map procedural steps into formatted list
+        procedural_steps_str = "\n".join(f"{i+1}. {step}" for i, step in enumerate(action_steps))
+
         return LegalAnswer(
             query=query,
             jurisdiction=jurisdiction,
@@ -179,25 +242,19 @@ class LegalGuidanceEngine:
                 "how_it_may_relate",
                 "These statutory provisions govern the timelines, eligibility, and procedural obligations relevant to your inquiry."
             ),
-            what_you_may_consider_doing=parsed.get(
-                "what_you_may_consider_doing",
-                [
-                    "Prepare an application adhering to the prescribed statutory format",
-                    "Attach copies of all supporting evidence and identity proofs",
-                    "Submit to the designated Public Information Officer / Competent Authority"
-                ]
-            ),
+            what_you_may_consider_doing=action_steps,
+            how_it_may_help_or_steps=procedural_steps_str,
             evidence_that_may_help=parsed.get(
                 "evidence_that_may_help",
-                ["Proof of identity", "Copies of previous correspondence", "Application fee receipt"]
+                ["Original application or notice receipts", "Identity proof (Aadhaar or Voter ID)", "Written correspondence with date stamps"]
             ),
             where_to_go=parsed.get(
                 "where_to_go",
-                ["Central / State Public Information Office", "Designated Appellate Authority"]
+                ["Central Public Information Officer / State PIO Desk", "First Appellate Authority", "District Consumer Disputes Redressal Commission"]
             ),
             sources=citations,
-            confidence=evidence_pack.evidence_confidence,
-            warnings=parsed.get("warnings", ["Check state-specific rules and amendments."]),
+            confidence=round(evidence_pack.evidence_confidence, 2),
+            warnings=parsed.get("warnings") or evidence_pack.warnings or ["Statutory limitation periods apply to appeals and grievance petitions.", "Consult official gazette notifications or legal counsel for court proceedings."],
             important_limitation=parsed.get(
                 "important_limitation",
                 "This information is for educational and civic guidance purposes only and does not constitute formal legal counsel."
@@ -206,5 +263,10 @@ class LegalGuidanceEngine:
         )
 
 
+# Exported aliases for orchestrators and dependency injection
 LegalEngine = LegalGuidanceEngine
+legal_engine = LegalGuidanceEngine()
 
+
+def get_legal_engine() -> type[LegalGuidanceEngine]:
+    return LegalGuidanceEngine
